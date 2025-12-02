@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prévisualisation - Fiche Produit</title>
+  
+  <!-- Bibliothèques PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --color-primary: #2ecc71;
+      --color-secondary: #27ae60;
+      --color-accent: #f39c12;
+      --color-bg: #ecf0f1;
+      --color-text: #2c3e50;
+      --color-white: #ffffff;
+      --shadow: 0 10px 40px rgba(0,0,0,0.1);
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--color-bg);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .header {
+      background: var(--color-white);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      border-radius: 12px;
+      margin-bottom: 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .header-title {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .header-title h1 {
+      font-size: 1.5rem;
+      color: var(--color-text);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: inherit;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+      color: var(--color-white);
+      box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4);
+    }
+
+    .btn-secondary {
+      background: var(--color-white);
+      color: var(--color-text);
+      border: 2px solid #e0e0e0;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    /* PDF Preview - Format A5 (148 x 210 mm à 96 DPI = 560 x 794 px) */
+    .pdf-wrapper {
+      background: var(--color-white);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      padding: 40px;
+      margin-bottom: 30px;
+    }
+
+    #pdfPreview {
+      width: 560px;
+      max-width: 100%;
+      margin: 0 auto;
+      background: var(--color-white);
+      padding: 40px;
+      font-family: 'Georgia', serif;
+      color: var(--color-text);
+      line-height: 1.8;
+    }
+
+    #pdfPreview h1 {
+      font-size: 2.5rem;
+      color: var(--color-primary);
+      text-align: center;
+      margin-bottom: 15px;
+      font-weight: 700;
+      border-bottom: 3px solid var(--color-primary);
+      padding-bottom: 15px;
+    }
+
+    #pdfPreview .slogan {
+      text-align: center;
+      font-size: 1.2rem;
+      color: #7f8c8d;
+      margin-bottom: 30px;
+      font-style: italic;
+    }
+
+    #pdfPreview h2 {
+      font-size: 1.5rem;
+      color: var(--color-secondary);
+      margin: 30px 0 15px 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #pdfPreview ul {
+      list-style: none;
+      padding: 0;
+      margin: 15px 0;
+    }
+
+    #pdfPreview ul li {
+      padding: 10px 0 10px 30px;
+      position: relative;
+      line-height: 1.6;
+    }
+
+    #pdfPreview ul li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: var(--color-primary);
+      font-weight: bold;
+      font-size: 1.2rem;
+    }
+
+    #pdfPreview .recipe {
+      background: linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%);
+      border-left: 4px solid var(--color-accent);
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+    }
+
+    #pdfPreview .recipe strong {
+      display: block;
+      font-size: 1.2rem;
+      color: var(--color-accent);
+      margin-bottom: 10px;
+    }
+
+    #pdfPreview .recipe p {
+      margin: 8px 0;
+      line-height: 1.6;
+    }
+
+    #pdfPreview .recipe em {
+      color: #e67e22;
+      font-weight: 600;
+    }
+
+    #pdfPreview .footer {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 2px solid #e0e0e0;
+      font-size: 0.9rem;
+      color: #95a5a6;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      margin: 0 auto 20px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid var(--color-primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .error {
+      background: #fee;
+      border: 1px solid #fcc;
+      color: #c33;
+      padding: 30px;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    @media (max-width: 768px) {
+      .header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .header-actions {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+        justify-content: center;
+      }
+
+      #pdfPreview {
+        padding: 20px;
+      }
+
+      #pdfPreview h1 {
+        font-size: 2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-title">
+        <span style="font-size: 2rem;">🍇</span>
+        <h1 id="pageTitle">Prévisualisation</h1>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-primary" id="downloadBtn" style="display: none;">
+          <span>⬇️</span>
+          <span>Télécharger le PDF</span>
+        </button>
+        <a href="index.html?return=true" class="btn btn-secondary">
+          <span>🔄</span>
+          <span>Nouvelle fiche</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Contenu -->
+    <div class="pdf-wrapper">
+      <!-- Loading -->
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Chargement de la prévisualisation...</p>
+      </div>
+
+      <!-- Error -->
+      <div class="error" id="error" style="display: none;">
+        <h2>❌ Erreur</h2>
+        <p id="errorMessage"></p>
+        <a href="index.html" class="btn btn-primary" style="margin-top: 20px;">
+          Retour à l'accueil
+        </a>
+      </div>
+
+      <!-- PDF Preview -->
+      <div id="pdfPreview" style="display: none;"></div>
+    </div>
+  </div>
+
+  <script>
+    // ========================================
+    // ÉLÉMENTS DOM
+    // ========================================
+    const loading = document.getElementById('loading');
+    const error = document.getElementById('error');
+    const errorMessage = document.getElementById('errorMessage');
+    const pdfPreview = document.getElementById('pdfPreview');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const pageTitle = document.getElementById('pageTitle');
+
+    let currentProductName = '';
+
+    // ========================================
+    // INITIALISATION
+    // ========================================
+    document.addEventListener('DOMContentLoaded', () => {
+      loadPreview();
+      setupEventListeners();
+    });
+
+    function setupEventListeners() {
+      downloadBtn.addEventListener('click', downloadPDF);
+    }
+
+    // ========================================
+    // CHARGEMENT DE LA PRÉVISUALISATION
+    // ========================================
+    function loadPreview() {
+      try {
+        // Récupérer les données depuis sessionStorage
+        const pdfContentStr = sessionStorage.getItem('pdfContent');
+        const productName = sessionStorage.getItem('productName');
+
+        if (!pdfContentStr || !productName) {
+          throw new Error('Aucune donnée trouvée. Veuillez générer une fiche depuis la page d\'accueil.');
+        }
+
+        const pdfContent = JSON.parse(pdfContentStr);
+        currentProductName = productName;
+
+        // Générer le HTML
+        const html = generateHTML(pdfContent);
+
+        // Afficher
+        displayPreview(html, productName);
+
+      } catch (err) {
+        console.error('❌ Erreur:', err);
+        showError(err.message);
+      }
+    }
+
+    // ========================================
+    // GÉNÉRATION DU HTML
+    // ========================================
+    function generateHTML(pdfContent) {
+      const { titre, slogan, caracteristiques, consommation, recettes } = pdfContent;
+
+      // Caractéristiques
+      const caracHtml = caracteristiques.map(c => 
+        `<li><strong>${c.type}</strong> : ${c.description}</li>`
+      ).join('');
+
+      // Consommation
+      const consoHtml = consommation.map(s => 
+        `<li>${s}</li>`
+      ).join('');
+
+      // Recettes
+      const recettesHtml = recettes.map(r => {
+        const emoji = r.type === 'Sucrée' ? '🍰' : '🍤';
+        return `
+          <div class="recipe">
+            <strong>${emoji} Recette ${r.type} : ${r.nom}</strong>
+            <p><strong>Ingrédients :</strong> ${r.ingredients}</p>
+            <p><em>💡 Astuce :</em> ${r.astuce}</p>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <h1>${titre}</h1>
+        <p class="slogan">${slogan}</p>
+        
+        <h2>🌿 Caractéristiques</h2>
+        <ul>${caracHtml}</ul>
+        
+        <h2>🍴 3 Façons de le Consommer</h2>
+        <ul>${consoHtml}</ul>
+        
+        <h2>👨‍🍳 Idées Recettes</h2>
+        ${recettesHtml}
+        
+        <div class="footer">
+          Fiche créée pour <strong>${titre}</strong> | © Primeur Gourmand ${new Date().getFullYear()}<br>
+          Générée le ${new Date().toLocaleDateString('fr-FR', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          })}
+        </div>
+      `;
+    }
+
+    // ========================================
+    // AFFICHAGE
+    // ========================================
+    function displayPreview(html, productName) {
+      loading.style.display = 'none';
+      pdfPreview.innerHTML = html;
+      pdfPreview.style.display = 'block';
+      downloadBtn.style.display = 'inline-flex';
+      pageTitle.textContent = `Fiche ${productName}`;
+    }
+
+    function showError(message) {
+      loading.style.display = 'none';
+      error.style.display = 'block';
+      errorMessage.textContent = message;
+    }
+
+    // ========================================
+    // TÉLÉCHARGEMENT PDF
+    // ========================================
+    async function downloadPDF() {
+      try {
+        downloadBtn.disabled = true;
+        downloadBtn.innerHTML = '<span>⏳</span><span>Génération du PDF...</span>';
+
+        const element = document.getElementById('pdfPreview');
+
+        // Capture avec html2canvas
+        const canvas = await html2canvas(element, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff'
+        });
+
+        // Conversion en PDF
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+
+        // Format A5 (148 x 210 mm)
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a5'
+        });
+
+        const imgWidth = 148;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+
+        // Téléchargement
+        const filename = `Fiche_${currentProductName.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.pdf`;
+        pdf.save(filename);
+
+        // Réinitialiser le bouton
+        setTimeout(() => {
+          downloadBtn.disabled = false;
+          downloadBtn.innerHTML = '<span>⬇️</span><span>Télécharger le PDF</span>';
+        }, 1000);
+
+      } catch (err) {
+        console.error('❌ Erreur PDF:', err);
+        alert('❌ Erreur lors de la génération du PDF');
+        downloadBtn.disabled = false;
+        downloadBtn.innerHTML = '<span>⬇️</span><span>Télécharger le PDF</span>';
+      }
+    }
+  </script>
+</body>
+</html>
