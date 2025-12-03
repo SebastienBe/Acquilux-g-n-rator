@@ -12,18 +12,9 @@
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;700&family=Poller+One&display=swap" rel="stylesheet">
   
-  <!-- Font personnalisée Felten (vous devrez héberger cette font) -->
-  <style>
-    @font-face {
-      font-family: 'Felten';
-      src: url('https://fonts.cdnfonts.com/css/felten') format('woff2');
-      font-weight: normal;
-      font-style: normal;
-    }
-  </style>
-
+  <!-- Font personnalisée Felten (optionnelle) -->
   <style>
     * {
       margin: 0;
@@ -154,15 +145,16 @@
 
     /* Titre principal */
     #pdfPreview h1 {
-      font-family: 'Felten', 'Impact', sans-serif;
+      font-family: 'Poller One', cursive;
       font-size: 2.2rem;
       color: var(--color-primary);
       text-align: center;
       margin-bottom: 12px;
-      font-weight: 700;
+      font-weight: 400;
       border-bottom: 4px solid var(--color-primary);
       padding-bottom: 12px;
       line-height: 1.2;
+      text-transform: uppercase;
     }
 
     /* Slogan */
@@ -178,14 +170,15 @@
 
     /* Titres de sections */
     #pdfPreview h2 {
-      font-family: 'Felten', 'Impact', sans-serif;
+      font-family: 'Poller One', cursive;
       font-size: 1.4rem;
       color: var(--color-primary);
       margin: 25px 0 12px 0;
       display: flex;
       align-items: center;
       gap: 10px;
-      font-weight: 600;
+      font-weight: 400;
+      text-transform: uppercase;
     }
 
     #pdfPreview h2 .emoji {
@@ -232,12 +225,13 @@
     }
 
     #pdfPreview .recipe strong {
-      font-family: 'Felten', 'Impact', sans-serif;
+      font-family: 'Poller One', cursive;
       display: block;
       font-size: 1.15rem;
       color: var(--color-primary);
       margin-bottom: 8px;
-      font-weight: 700;
+      font-weight: 400;
+      text-transform: uppercase;
     }
 
     #pdfPreview .recipe p {
