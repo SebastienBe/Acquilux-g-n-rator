@@ -105,67 +105,86 @@
     }
 
     .container {
-      max-width: 800px;
+      max-width: 900px;
       margin: 0 auto;
     }
 
-    /* PDF Preview - Format A5 (148 x 210 mm à 96 DPI = 560 x 794 px) */
+    /* PDF Preview Container */
     .pdf-wrapper {
-      background: var(--color-white);
+      background: #95a5a6;
       border-radius: 12px;
       box-shadow: var(--shadow);
       padding: 40px;
       margin-bottom: 30px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
+    /* Format A5 exact : 148mm x 210mm = 559px x 794px à 96 DPI */
     #pdfPreview {
-      width: 560px;
-      max-width: 100%;
-      margin: 0 auto;
+      width: 559px;
+      height: 794px;
       background: var(--color-white);
-      padding: 40px;
-      font-family: 'Georgia', serif;
+      padding: 50px 40px;
+      font-family: 'Georgia', 'Times New Roman', serif;
       color: var(--color-text);
-      line-height: 1.8;
+      line-height: 1.7;
+      overflow: hidden;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
     }
 
+    /* Titre principal */
     #pdfPreview h1 {
-      font-size: 2.5rem;
+      font-size: 2.2rem;
       color: var(--color-primary);
       text-align: center;
-      margin-bottom: 15px;
+      margin-bottom: 12px;
       font-weight: 700;
-      border-bottom: 3px solid var(--color-primary);
-      padding-bottom: 15px;
+      border-bottom: 4px solid var(--color-primary);
+      padding-bottom: 12px;
+      line-height: 1.2;
     }
 
+    /* Slogan */
     #pdfPreview .slogan {
       text-align: center;
-      font-size: 1.2rem;
+      font-size: 1.1rem;
       color: #7f8c8d;
       margin-bottom: 30px;
       font-style: italic;
+      line-height: 1.4;
     }
 
+    /* Titres de sections */
     #pdfPreview h2 {
-      font-size: 1.5rem;
+      font-size: 1.4rem;
       color: var(--color-secondary);
-      margin: 30px 0 15px 0;
+      margin: 25px 0 12px 0;
       display: flex;
       align-items: center;
       gap: 10px;
+      font-weight: 600;
     }
 
+    #pdfPreview h2 .emoji {
+      font-size: 1.5rem;
+    }
+
+    /* Listes */
     #pdfPreview ul {
       list-style: none;
       padding: 0;
-      margin: 15px 0;
+      margin: 10px 0 20px 0;
     }
 
     #pdfPreview ul li {
-      padding: 10px 0 10px 30px;
+      padding: 8px 0 8px 28px;
       position: relative;
       line-height: 1.6;
+      font-size: 0.95rem;
     }
 
     #pdfPreview ul li::before {
@@ -174,43 +193,50 @@
       left: 0;
       color: var(--color-primary);
       font-weight: bold;
-      font-size: 1.2rem;
+      font-size: 1.1rem;
     }
 
+    #pdfPreview ul li strong {
+      color: var(--color-secondary);
+      font-weight: 600;
+    }
+
+    /* Recettes */
     #pdfPreview .recipe {
-      background: linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%);
-      border-left: 4px solid var(--color-accent);
-      padding: 20px;
-      margin: 20px 0;
+      background: linear-gradient(135deg, #fff9f0 0%, #ffe8cc 100%);
+      border-left: 5px solid var(--color-accent);
+      padding: 18px;
+      margin: 15px 0;
       border-radius: 8px;
+      page-break-inside: avoid;
     }
 
     #pdfPreview .recipe strong {
       display: block;
-      font-size: 1.2rem;
+      font-size: 1.15rem;
       color: var(--color-accent);
-      margin-bottom: 10px;
+      margin-bottom: 8px;
+      font-weight: 700;
     }
 
     #pdfPreview .recipe p {
-      margin: 8px 0;
+      margin: 6px 0;
       line-height: 1.6;
+      font-size: 0.95rem;
     }
 
     #pdfPreview .recipe em {
       color: #e67e22;
       font-weight: 600;
+      font-style: normal;
     }
 
-    #pdfPreview .footer {
-      text-align: center;
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 2px solid #e0e0e0;
-      font-size: 0.9rem;
-      color: #95a5a6;
+    /* Espacement et équilibre */
+    #pdfPreview > *:last-child {
+      margin-bottom: 0;
     }
 
+    /* Loading, Error states */
     .loading {
       text-align: center;
       padding: 60px 20px;
@@ -240,6 +266,7 @@
       text-align: center;
     }
 
+    /* Responsive pour mobile (preview seulement) */
     @media (max-width: 768px) {
       .header {
         flex-direction: column;
@@ -255,12 +282,45 @@
         justify-content: center;
       }
 
+      .pdf-wrapper {
+        padding: 20px 10px;
+      }
+
       #pdfPreview {
-        padding: 20px;
+        width: 100%;
+        max-width: 559px;
+        height: auto;
+        min-height: 794px;
+        padding: 30px 25px;
       }
 
       #pdfPreview h1 {
-        font-size: 2rem;
+        font-size: 1.8rem;
+      }
+
+      #pdfPreview h2 {
+        font-size: 1.2rem;
+      }
+    }
+
+    /* Optimisation impression/PDF */
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+
+      .header,
+      .pdf-wrapper {
+        display: none;
+      }
+
+      #pdfPreview {
+        width: 148mm;
+        height: 210mm;
+        box-shadow: none;
+        margin: 0;
+        padding: 10mm;
       }
     }
   </style>
@@ -378,7 +438,7 @@
 
       // Recettes
       const recettesHtml = recettes.map(r => {
-        const emoji = r.type === 'Sucrée' ? '🍰' : '🍤';
+        const emoji = r.type === 'Sucrée' ? '🍰' : '🍽';
         return `
           <div class="recipe">
             <strong>${emoji} Recette ${r.type} : ${r.nom}</strong>
@@ -392,24 +452,14 @@
         <h1>${titre}</h1>
         <p class="slogan">${slogan}</p>
         
-        <h2>🌿 Caractéristiques</h2>
+        <h2><span class="emoji">🌿</span> Caractéristiques</h2>
         <ul>${caracHtml}</ul>
         
-        <h2>🍴 3 Façons de le Consommer</h2>
+        <h2><span class="emoji">🍴</span> 3 Façons de le Consommer</h2>
         <ul>${consoHtml}</ul>
         
-        <h2>👨‍🍳 Idées Recettes</h2>
+        <h2><span class="emoji">👨‍🍳</span> Idées Recettes</h2>
         ${recettesHtml}
-        
-        <div class="footer">
-          Fiche créée pour <strong>${titre}</strong> | © Primeur Gourmand ${new Date().getFullYear()}<br>
-          Générée le ${new Date().toLocaleDateString('fr-FR', { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-          })}
-        </div>
       `;
     }
 
@@ -419,7 +469,7 @@
     function displayPreview(html, productName) {
       loading.style.display = 'none';
       pdfPreview.innerHTML = html;
-      pdfPreview.style.display = 'block';
+      pdfPreview.style.display = 'flex';
       downloadBtn.style.display = 'inline-flex';
       pageTitle.textContent = `Fiche ${productName}`;
     }
@@ -440,12 +490,14 @@
 
         const element = document.getElementById('pdfPreview');
 
-        // Capture avec html2canvas
+        // Capture avec html2canvas - Haute qualité pour PDF
         const canvas = await html2canvas(element, {
-          scale: 2,
+          scale: 3, // Haute résolution pour un PDF net
           useCORS: true,
           logging: false,
-          backgroundColor: '#ffffff'
+          backgroundColor: '#ffffff',
+          width: 559,
+          height: 794
         });
 
         // Conversion en PDF
@@ -456,13 +508,14 @@
         const pdf = new jsPDF({
           orientation: 'portrait',
           unit: 'mm',
-          format: 'a5'
+          format: 'a5',
+          compress: true
         });
 
         const imgWidth = 148;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        const imgHeight = 210;
 
-        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight, '', 'FAST');
 
         // Téléchargement
         const filename = `Fiche_${currentProductName.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.pdf`;
