@@ -9,6 +9,21 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Font personnalisée Felten (vous devrez héberger cette font) -->
+  <style>
+    @font-face {
+      font-family: 'Felten';
+      src: url('https://fonts.cdnfonts.com/css/felten') format('woff2');
+      font-weight: normal;
+      font-style: normal;
+    }
+  </style>
+
   <style>
     * {
       margin: 0;
@@ -17,12 +32,13 @@
     }
 
     :root {
-      --color-primary: #2ecc71;
-      --color-secondary: #27ae60;
-      --color-accent: #f39c12;
+      --color-primary: #E65B0C;
+      --color-secondary: #E65B0C;
+      --color-accent: #E65B0C;
       --color-bg: #ecf0f1;
-      --color-text: #2c3e50;
+      --color-text: #000000;
       --color-white: #ffffff;
+      --color-pdf-bg: #F6E2BE;
       --shadow: 0 10px 40px rgba(0,0,0,0.1);
     }
 
@@ -125,9 +141,9 @@
     #pdfPreview {
       width: 559px;
       height: 794px;
-      background: var(--color-white);
+      background: var(--color-pdf-bg);
       padding: 50px 40px;
-      font-family: 'Georgia', 'Times New Roman', serif;
+      font-family: 'Source Code Pro', monospace;
       color: var(--color-text);
       line-height: 1.7;
       overflow: hidden;
@@ -138,6 +154,7 @@
 
     /* Titre principal */
     #pdfPreview h1 {
+      font-family: 'Felten', 'Impact', sans-serif;
       font-size: 2.2rem;
       color: var(--color-primary);
       text-align: center;
@@ -150,9 +167,10 @@
 
     /* Slogan */
     #pdfPreview .slogan {
+      font-family: 'Source Code Pro', monospace;
       text-align: center;
       font-size: 1.1rem;
-      color: #7f8c8d;
+      color: var(--color-text);
       margin-bottom: 30px;
       font-style: italic;
       line-height: 1.4;
@@ -160,8 +178,9 @@
 
     /* Titres de sections */
     #pdfPreview h2 {
+      font-family: 'Felten', 'Impact', sans-serif;
       font-size: 1.4rem;
-      color: var(--color-secondary);
+      color: var(--color-primary);
       margin: 25px 0 12px 0;
       display: flex;
       align-items: center;
@@ -185,6 +204,7 @@
       position: relative;
       line-height: 1.6;
       font-size: 0.95rem;
+      color: var(--color-text);
     }
 
     #pdfPreview ul li::before {
@@ -197,14 +217,14 @@
     }
 
     #pdfPreview ul li strong {
-      color: var(--color-secondary);
+      color: var(--color-primary);
       font-weight: 600;
     }
 
     /* Recettes */
     #pdfPreview .recipe {
-      background: linear-gradient(135deg, #fff9f0 0%, #ffe8cc 100%);
-      border-left: 5px solid var(--color-accent);
+      background: rgba(255, 255, 255, 0.5);
+      border-left: 5px solid var(--color-primary);
       padding: 18px;
       margin: 15px 0;
       border-radius: 8px;
@@ -212,21 +232,24 @@
     }
 
     #pdfPreview .recipe strong {
+      font-family: 'Felten', 'Impact', sans-serif;
       display: block;
       font-size: 1.15rem;
-      color: var(--color-accent);
+      color: var(--color-primary);
       margin-bottom: 8px;
       font-weight: 700;
     }
 
     #pdfPreview .recipe p {
+      font-family: 'Source Code Pro', monospace;
       margin: 6px 0;
       line-height: 1.6;
       font-size: 0.95rem;
+      color: var(--color-text);
     }
 
     #pdfPreview .recipe em {
-      color: #e67e22;
+      color: var(--color-primary);
       font-weight: 600;
       font-style: normal;
     }
