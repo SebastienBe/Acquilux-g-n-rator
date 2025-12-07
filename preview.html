@@ -5,14 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Prévisualisation - Fiche Produit</title>
   
-  <!-- Bibliothèques PDF -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;700&family=Poller+One&display=swap" rel="stylesheet">
+  <link
+    rel="preload"
+    as="style"
+    href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;700&family=Poller+One&display=swap"
+    onload="this.onload=null;this.rel='stylesheet'">
+  <noscript>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;700&family=Poller+One&display=swap">
+  </noscript>
   
   <!-- Font personnalisée Felten (optionnelle) -->
   <style>
@@ -392,6 +397,14 @@
     const downloadBtn = document.getElementById('downloadBtn');
     const pageTitle = document.getElementById('pageTitle');
 
+    const PDF_LIB_URLS = {
+      jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+      html2canvas: 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
+    };
+
+    const loadedScripts = {};
+    let pdfLibsPromise = null;
+
     let currentProductName = '';
 
     // ========================================
@@ -404,6 +417,48 @@
 
     function setupEventListeners() {
       downloadBtn.addEventListener('click', downloadPDF);
+    }
+
+    function loadScriptOnce(src, hasGlobal) {
+      if (hasGlobal()) {
+        return Promise.resolve();
+      }
+
+      if (loadedScripts[src]) {
+        return loadedScripts[src];
+      }
+
+      loadedScripts[src] = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        script.addEventListener('load', () => {
+          if (hasGlobal()) {
+            resolve();
+          } else {
+            reject(new Error(`La librairie ${src} ne s'est pas initialisée correctement.`));
+          }
+        });
+        script.addEventListener('error', () => {
+          reject(new Error(`Impossible de charger ${src}`));
+        });
+        document.head.appendChild(script);
+      }).catch(error => {
+        delete loadedScripts[src];
+        throw error;
+      });
+
+      return loadedScripts[src];
+    }
+
+    function ensurePdfLibraries() {
+      if (!pdfLibsPromise) {
+        pdfLibsPromise = Promise.all([
+          loadScriptOnce(PDF_LIB_URLS.jspdf, () => Boolean(window.jspdf)),
+          loadScriptOnce(PDF_LIB_URLS.html2canvas, () => Boolean(window.html2canvas))
+        ]);
+      }
+      return pdfLibsPromise;
     }
 
     // ========================================
@@ -498,12 +553,21 @@
     // ========================================
     // TÉLÉCHARGEMENT PDF
     // ========================================
+    function resetDownloadButton() {
+      downloadBtn.disabled = false;
+      downloadBtn.innerHTML = '<span>⬇️</span><span>Télécharger le PDF</span>';
+    }
+
     async function downloadPDF() {
       try {
         downloadBtn.disabled = true;
         downloadBtn.innerHTML = '<span>⏳</span><span>Génération du PDF...</span>';
 
+        await ensurePdfLibraries();
+
         const element = document.getElementById('pdfPreview');
+        const html2canvas = window.html2canvas;
+        const { jsPDF } = window.jspdf;
 
         // Capture avec html2canvas - Haute qualité pour PDF
         const canvas = await html2canvas(element, {
@@ -517,7 +581,6 @@
 
         // Conversion en PDF
         const imgData = canvas.toDataURL('image/png');
-        const { jsPDF } = window.jspdf;
 
         // Format A5 (148 x 210 mm)
         const pdf = new jsPDF({
@@ -536,17 +599,15 @@
         const filename = `Fiche_${currentProductName.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.pdf`;
         pdf.save(filename);
 
-        // Réinitialiser le bouton
+        // Réinitialiser le bouton légèrement après le téléchargement
         setTimeout(() => {
-          downloadBtn.disabled = false;
-          downloadBtn.innerHTML = '<span>⬇️</span><span>Télécharger le PDF</span>';
-        }, 1000);
+          resetDownloadButton();
+        }, 600);
 
       } catch (err) {
         console.error('❌ Erreur PDF:', err);
         alert('❌ Erreur lors de la génération du PDF');
-        downloadBtn.disabled = false;
-        downloadBtn.innerHTML = '<span>⬇️</span><span>Télécharger le PDF</span>';
+        resetDownloadButton();
       }
     }
   </script>
