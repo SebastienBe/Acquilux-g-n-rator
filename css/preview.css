@@ -1,0 +1,464 @@
+body {
+  background: var(--color-bg);
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.header {
+  background: var(--color-white);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  border-radius: 12px;
+  margin-bottom: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.header-title h1 {
+  font-size: 1.5rem;
+  color: var(--color-text);
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Switch Toggle pour le badge */
+.badge-toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.badge-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+
+.badge-toggle-label input[type="checkbox"] {
+  width: 44px;
+  height: 24px;
+  appearance: none;
+  background: #ccc;
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  outline: none;
+}
+
+.badge-toggle-label input[type="checkbox"]:checked {
+  background: var(--color-primary);
+}
+
+.badge-toggle-label input[type="checkbox"]::before {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.badge-toggle-label input[type="checkbox"]:checked::before {
+  transform: translateX(20px);
+}
+
+.badge-toggle-text {
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* PDF Preview Container - Identité Otera */
+.pdf-wrapper {
+  background: #F5F0E8; /* Beige clair comme le fond du site */
+  border-radius: 0;
+  box-shadow: none;
+  padding: 30px;
+  margin-bottom: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Format A5 exact : 148mm x 210mm = 559px x 794px à 96 DPI - Identité Otera */
+#pdfPreview {
+  width: 100%;
+  max-width: 559px;
+  min-height: 794px;
+  height: auto;
+  max-height: none;
+  background: var(--color-pdf-bg);
+  padding: 28px 24px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+  color: var(--color-text);
+  line-height: 1.55;
+  overflow: visible;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  justify-content: flex-start;
+  align-items: stretch;
+  letter-spacing: 0;
+  border: 1px solid rgba(230, 91, 12, 0.1); /* Bordure subtile orange */
+  margin: 0 auto; /* Centrage horizontal */
+  box-sizing: border-box;
+}
+
+/* Badge Otera - Circuit-court (style bouton orange du site) */
+#pdfPreview::before {
+  content: "CIRCUIT-COURT";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: var(--color-badge);
+  color: var(--color-badge-text);
+  font-size: 0.58rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 4px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(230, 91, 12, 0.2);
+  transition: opacity 0.2s ease;
+}
+
+/* Masquer le badge quand la classe hide-badge est présente */
+#pdfPreview.hide-badge::before {
+  display: none;
+}
+
+/* Titre principal - Identité Otera */
+#pdfPreview h1 {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Roboto', sans-serif;
+  font-size: 1.5rem;
+  color: var(--color-primary);
+  text-align: center;
+  margin: 6px auto 8px auto;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Slogan - Identité Otera */
+#pdfPreview .slogan {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Roboto', sans-serif;
+  text-align: center;
+  font-size: 0.76rem;
+  color: var(--color-secondary);
+  margin: 0 auto 16px auto;
+  font-weight: 400;
+  line-height: 1.5;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-divider);
+  letter-spacing: 0;
+  font-style: italic;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Titres de sections - Identité Otera */
+#pdfPreview h2 {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Roboto', sans-serif;
+  font-size: 0.74rem;
+  color: var(--color-primary);
+  margin: 12px 0 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#pdfPreview h2:first-of-type {
+  margin-top: 0;
+}
+
+#pdfPreview h2 .emoji {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+/* Listes - Identité Otera */
+#pdfPreview ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 10px 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#pdfPreview ul li {
+  padding: 3px 0 3px 16px;
+  position: relative;
+  line-height: 1.5;
+  font-size: 0.71rem;
+  color: var(--color-text);
+  margin-bottom: 0;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+#pdfPreview ul li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--color-primary);
+  font-weight: bold;
+  font-size: 1rem;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+#pdfPreview ul li strong {
+  color: var(--color-primary);
+  font-weight: 600;
+  font-size: 0.71rem;
+  margin-right: 4px;
+}
+
+/* Recettes - Identité Otera */
+#pdfPreview .recipe {
+  background: var(--color-highlight);
+  border-left: 2px solid var(--color-primary);
+  padding: 8px 10px;
+  margin: 4px 0;
+  border-radius: 3px;
+  page-break-inside: avoid;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#pdfPreview .recipe strong {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Roboto', sans-serif;
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-primary);
+  margin-bottom: 3px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+
+#pdfPreview .recipe p {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Roboto', sans-serif;
+  margin: 2px 0;
+  line-height: 1.5;
+  font-size: 0.68rem;
+  color: var(--color-text);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+#pdfPreview .recipe p strong {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Roboto', sans-serif;
+  font-weight: 600;
+  font-size: 0.68rem;
+  color: var(--color-primary);
+}
+
+#pdfPreview .recipe em {
+  color: var(--color-secondary);
+  font-weight: 400;
+  font-style: italic;
+  font-size: 0.68rem;
+}
+
+/* Espacement et équilibre */
+#pdfPreview > *:last-child {
+  margin-bottom: 0;
+}
+
+/* Ajustements pour éviter le débordement - Style Apple */
+#pdfPreview {
+  box-sizing: border-box;
+}
+
+#pdfPreview * {
+  box-sizing: border-box;
+}
+
+/* Assurer que le contenu ne dépasse jamais */
+#pdfPreview > * {
+  flex-shrink: 0;
+}
+
+/* Ajustement des recettes pour éviter le débordement */
+#pdfPreview .recipe {
+  flex-shrink: 1;
+  min-height: 0;
+}
+
+/* Espacement Otera - généreux mais optimisé pour A5 */
+#pdfPreview h2 + ul {
+  margin-top: 3px;
+}
+
+/* Optimisation supplémentaire pour tenir dans A5 */
+#pdfPreview h2:not(:first-of-type) {
+  margin-top: 10px;
+}
+
+#pdfPreview .slogan {
+  margin-bottom: 14px;
+}
+
+/* Footer Otera - Identité de marque */
+#pdfPreview .otera-footer {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-divider);
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#pdfPreview .otera-logo {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Roboto', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: 1.5px;
+  margin-bottom: 3px;
+  text-transform: lowercase;
+}
+
+#pdfPreview .otera-tagline {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Roboto', sans-serif;
+  font-size: 0.64rem;
+  color: var(--color-secondary);
+  font-style: normal;
+  letter-spacing: 0;
+  font-weight: 400;
+  text-transform: none;
+}
+
+/* Loading, Error states */
+.loading {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.error {
+  padding: 30px;
+  border-radius: 12px;
+  text-align: center;
+}
+
+/* Responsive pour mobile (preview seulement) */
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header-actions {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .pdf-wrapper {
+    padding: 16px;
+    background: #F5F8F6;
+  }
+
+  #pdfPreview {
+    width: 100%;
+    max-width: 559px;
+    height: auto;
+    min-height: 720px;
+    padding: 28px 24px; /* Garder le même padding que desktop pour cohérence PDF */
+    aspect-ratio: auto;
+    margin: 0 auto; /* Centrage horizontal */
+  }
+
+  /* Ajustements de taille pour mobile tout en gardant les proportions A5 */
+  #pdfPreview h1 {
+    font-size: 1.45rem;
+  }
+
+  #pdfPreview h2 {
+    font-size: 0.9rem;
+  }
+  
+  #pdfPreview .slogan {
+    font-size: 0.75rem;
+  }
+  
+  #pdfPreview ul li {
+    font-size: 0.71rem;
+  }
+  
+  #pdfPreview .recipe {
+    padding: 10px 12px;
+  }
+  
+  #pdfPreview .recipe strong {
+    font-size: 0.78rem;
+  }
+  
+  #pdfPreview .recipe p {
+    font-size: 0.68rem;
+  }
+}
+
+/* Optimisation impression/PDF */
+@media print {
+  body {
+    background: white;
+    padding: 0;
+  }
+
+  .header,
+  .pdf-wrapper {
+    display: none;
+  }
+
+  #pdfPreview {
+    width: 148mm;
+    height: 210mm;
+    box-shadow: none;
+    margin: 0;
+    padding: 8mm 7mm;
+  }
+}
+
