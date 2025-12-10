@@ -88,3 +88,5 @@ Si le problème persiste, copiez ces logs depuis la console :
 
 Ces logs permettront d'identifier exactement où les caractéristiques sont perdues.
 
+
+

@@ -41,6 +41,11 @@ function setupEventListeners() {
 
 function updateBadgeVisibility() {
   if (pdfPreview) {
+    const badgeElement = pdfPreview.querySelector('.circuit-court-badge');
+    if (badgeElement) {
+      badgeElement.style.display = badgeToggle.checked ? 'block' : 'none';
+    }
+    // Garder aussi la classe pour compatibilité
     if (badgeToggle.checked) {
       pdfPreview.classList.remove('hide-badge');
     } else {
@@ -125,6 +130,7 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+
 // ========================================
 // GÉNÉRATION DU HTML
 // ========================================
@@ -188,16 +194,20 @@ function generateHTML(pdfContent) {
           <div class="recipe">
             <strong>${emoji} Recette ${escapeHtml(r.type || '')} : ${nom}</strong>
             <p><strong>Ingrédients :</strong> ${ingredients}</p>
-            <p><em>💡 Astuce :</em> ${astuce}</p>
+            <em>💡 Astuce : ${astuce}</em>
           </div>
         `;
       }).join('')
     : '<p>Aucune recette disponible</p>';
 
-  // Retour avec footer Otera
+  // Retour avec footer Otera - Identité visuelle
   const finalHtml = `
-    <h1>${escapeHtml(titre || 'Produit')}</h1>
-    <p class="slogan">${escapeHtml(slogan || 'Un trésor de saveurs à découvrir')}</p>
+    <div class="header-orange-band"></div>
+    <img src="${CONFIG.N8N_BADGE_IMAGE_URL}" alt="Circuit court" class="circuit-court-badge">
+    <div class="header-content">
+      <h1>${escapeHtml(titre || 'Produit')}</h1>
+      <p class="slogan">${escapeHtml(slogan || 'Un trésor de saveurs à découvrir')}</p>
+    </div>
     
     <h2><span class="emoji">🌿</span> Caractéristiques</h2>
     <ul>${caracHtml}</ul>
@@ -221,14 +231,96 @@ function generateHTML(pdfContent) {
 }
 
 // ========================================
+// UTILITAIRES - Convertir image en base64 au chargement
+// ========================================
+async function convertImageToBase64OnLoad(img) {
+  return new Promise((resolve) => {
+    if (img.complete && img.naturalWidth > 0) {
+      // Image déjà chargée
+      convertImageToBase64(img).then(resolve);
+    } else {
+      img.onload = () => convertImageToBase64(img).then(resolve);
+      img.onerror = () => resolve(null); // Si l'image ne charge pas, retourner null
+    }
+  });
+}
+
+function convertImageToBase64(img) {
+  return new Promise((resolve) => {
+    // Si l'image est déjà en base64, la retourner directement
+    if (img.src && img.src.startsWith('data:')) {
+      resolve(img.src);
+      return;
+    }
+
+    // Pour les images file://, essayer d'utiliser XMLHttpRequest avec blob
+    if (img.src && img.src.startsWith('file://')) {
+      // Malheureusement, XMLHttpRequest ne fonctionne pas avec file://
+      // Il faut utiliser un serveur local
+      console.warn('⚠️ Impossible de convertir une image file:// en base64. Utilisez un serveur local.');
+      resolve(null);
+      return;
+    }
+
+    // Pour les autres images, essayer avec canvas
+    try {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      ctx.drawImage(img, 0, 0);
+      const dataURI = canvas.toDataURL('image/png');
+      resolve(dataURI);
+    } catch (err) {
+      console.warn('⚠️ Erreur conversion base64:', err);
+      resolve(null);
+    }
+  });
+}
+
+// ========================================
 // AFFICHAGE
 // ========================================
-function displayPreview(html, productName) {
+async function displayPreview(html, productName) {
   loading.style.display = 'none';
   pdfPreview.innerHTML = html;
   pdfPreview.style.display = 'flex';
   downloadBtn.style.display = 'inline-flex';
   pageTitle.textContent = `Fiche ${productName}`;
+  
+  // Convertir l'image en base64 dès le chargement pour éviter les problèmes CORS
+  const badgeImg = pdfPreview.querySelector('.circuit-court-badge');
+  if (badgeImg && badgeImg.tagName === 'IMG') {
+    // Attendre que l'image soit chargée
+    await new Promise((resolve) => {
+      if (badgeImg.complete && badgeImg.naturalWidth > 0) {
+        resolve();
+      } else {
+        badgeImg.onload = resolve;
+        badgeImg.onerror = resolve; // Continuer même si l'image ne charge pas
+        // Timeout de sécurité
+        setTimeout(resolve, 2000);
+      }
+    });
+    
+    // Essayer de convertir en base64
+    try {
+      const base64 = await convertImageToBase64OnLoad(badgeImg);
+      if (base64) {
+        badgeImg.src = base64;
+        console.log('✅ Image badge convertie en base64 au chargement');
+        // Forcer le rechargement de l'image
+        badgeImg.style.display = 'none';
+        badgeImg.offsetHeight; // Force reflow
+        badgeImg.style.display = '';
+      } else {
+        console.warn('⚠️ Impossible de convertir l\'image. L\'image peut ne pas s\'afficher dans le PDF.');
+        console.warn('💡 Solution: Utilisez un serveur local ou convertissez l\'image en base64 manuellement.');
+      }
+    } catch (err) {
+      console.warn('⚠️ Erreur lors de la conversion de l\'image:', err);
+    }
+  }
   
   // Appliquer l'état du badge après l'affichage
   setTimeout(() => {
@@ -247,6 +339,93 @@ function showError(message) {
 // ========================================
 function isMobile() {
   return window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+// ========================================
+// UTILITAIRES - Conversion image en data URI
+// ========================================
+async function convertImageToDataURI(img) {
+  // Si l'image est déjà un data URI, on la retourne directement
+  if (img.src && img.src.startsWith('data:')) {
+    return img.src;
+  }
+
+  try {
+    // Pour les images locales, utiliser fetch pour éviter le problème de "tainted canvas"
+    const response = await fetch(img.src);
+    const blob = await response.blob();
+    
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        resolve(reader.result);
+      };
+      reader.onerror = () => {
+        reject(new Error('Erreur lors de la lecture du fichier image'));
+      };
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    // Si fetch échoue (par exemple pour les images cross-origin), essayer avec canvas
+    console.warn('⚠️ Fetch échoué, tentative avec canvas:', err);
+    return new Promise((resolve, reject) => {
+      // Créer une nouvelle image pour éviter le problème de tainted canvas
+      const newImg = new Image();
+      newImg.crossOrigin = 'anonymous'; // Essayer d'activer CORS
+      
+      newImg.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = newImg.width;
+          canvas.height = newImg.height;
+          ctx.drawImage(newImg, 0, 0);
+          const dataURI = canvas.toDataURL('image/png');
+          resolve(dataURI);
+        } catch (canvasErr) {
+          // Si le canvas échoue aussi, retourner l'URL originale
+          console.warn('⚠️ Canvas échoué, utilisation de l\'URL originale:', canvasErr);
+          resolve(img.src);
+        }
+      };
+      
+      newImg.onerror = () => {
+        console.warn('⚠️ Chargement image échoué, utilisation de l\'URL originale');
+        resolve(img.src); // Retourner l'URL originale en dernier recours
+      };
+      
+      newImg.src = img.src;
+    });
+  }
+}
+
+// ========================================
+// UTILITAIRES - Préparer les images pour html2canvas
+// ========================================
+async function prepareImagesForCanvas(element) {
+  const images = element.querySelectorAll('img');
+  const imagePromises = [];
+  
+  for (const img of images) {
+    if (img.src && !img.src.startsWith('data:')) {
+      imagePromises.push(
+        convertImageToDataURI(img)
+          .then(dataURI => {
+            img.src = dataURI;
+            console.log('✅ Image convertie en data URI:', img.alt || 'sans alt');
+          })
+          .catch(err => {
+            console.error('❌ Erreur conversion image:', err);
+          })
+      );
+    }
+  }
+  
+  // Attendre que toutes les images soient converties
+  await Promise.all(imagePromises);
+  
+  // Attendre un peu pour que les images soient bien chargées dans le DOM
+  await new Promise(resolve => setTimeout(resolve, 100));
 }
 
 // ========================================
@@ -293,7 +472,7 @@ async function downloadPDF() {
       element.innerHTML = html;
       console.log('✅ HTML régénéré');
     }
-
+    
     // Dimensions A5 fixes pour garantir la cohérence
     const a5Width = 559;   // px (148mm à 96 DPI)
     const a5Height = 794;  // px (210mm à 96 DPI)
@@ -317,12 +496,41 @@ async function downloadPDF() {
       scrollHeight: element.scrollHeight
     });
 
+    // Vérifier si l'image badge nécessite une conversion base64
+    // Si l'image est en HTTP/HTTPS, html2canvas peut la charger directement avec useCORS: true
+    // Si l'image est locale (file://), on doit la convertir en base64
+    const badgeImg = element.querySelector('.circuit-court-badge');
+    if (badgeImg && badgeImg.tagName === 'IMG') {
+      const imgSrc = badgeImg.src || '';
+      if (imgSrc.startsWith('file://') || (imgSrc.startsWith('/') && !imgSrc.startsWith('http'))) {
+        // Image locale, conversion nécessaire
+        console.log('🖼️ Image locale détectée, conversion en base64...');
+        try {
+          const base64 = await convertImageToBase64OnLoad(badgeImg);
+          if (base64) {
+            badgeImg.src = base64;
+            console.log('✅ Image badge convertie en base64');
+          } else {
+            console.warn('⚠️ Impossible de convertir l\'image locale en base64');
+          }
+        } catch (err) {
+          console.warn('⚠️ Erreur lors de la conversion:', err);
+        }
+      } else if (imgSrc.startsWith('http://') || imgSrc.startsWith('https://')) {
+        // Image distante HTTP/HTTPS, html2canvas peut la charger directement
+        console.log('✅ Image badge distante (HTTP/HTTPS), pas de conversion nécessaire');
+      } else if (imgSrc.startsWith('data:')) {
+        // Déjà en base64
+        console.log('✅ Image badge déjà en base64');
+      }
+    }
+
     // Capture avec html2canvas - Dimensions fixes A5 pour cohérence
     const canvas = await html2canvas(element, {
       scale: scale,
       useCORS: true,
       logging: false,
-      backgroundColor: '#FEFCF9', // Fond beige Otera
+      backgroundColor: '#F6E2BE', // Fond beige Otera identité
       width: a5Width,  // Toujours 559px pour A5
       height: elementHeight, // Hauteur dynamique selon le contenu
       windowWidth: a5Width,
@@ -338,45 +546,97 @@ async function downloadPDF() {
           clonedElement.style.height = 'auto';
           clonedElement.style.maxWidth = a5Width + 'px';
           clonedElement.style.minWidth = a5Width + 'px';
-          clonedElement.style.maxHeight = 'none';
+          clonedElement.style.maxHeight = a5Height + 'px'; /* Limiter à la hauteur A5 */
           clonedElement.style.minHeight = a5Height + 'px';
-          clonedElement.style.padding = '28px 24px';
-          clonedElement.style.overflow = 'visible';
+          clonedElement.style.height = 'auto';
+          clonedElement.style.padding = '0'; // Pas de padding, géré par les marges internes
+          clonedElement.style.overflow = 'hidden'; // Pour les bords arrondis
           clonedElement.style.margin = '0 auto';
           clonedElement.style.position = 'relative';
           clonedElement.style.boxSizing = 'border-box';
+          clonedElement.style.borderRadius = '0'; // Pas d'arrondis pour le PDF
+          clonedElement.style.background = '#F6E2BE'; // Fond beige
           
-          // S'assurer que le contenu est centré et bien aligné
+          // S'assurer que le contenu est bien aligné
           clonedElement.style.display = 'flex';
           clonedElement.style.flexDirection = 'column';
           clonedElement.style.alignItems = 'stretch';
           clonedElement.style.justifyContent = 'flex-start';
           
-          // Centrer tous les éléments enfants qui doivent être centrés
-          const h1 = clonedElement.querySelector('h1');
+          // Supprimer les arrondis de la bande orange pour le PDF
+          const headerBand = clonedElement.querySelector('.header-orange-band');
+          if (headerBand) {
+            headerBand.style.borderRadius = '0';
+            headerBand.style.borderTopLeftRadius = '0';
+            headerBand.style.borderTopRightRadius = '0';
+          }
+          
+          // S'assurer que le header-content est bien positionné
+          const headerContent = clonedElement.querySelector('.header-content');
+          if (headerContent) {
+            headerContent.style.position = 'relative';
+            headerContent.style.zIndex = '10';
+            headerContent.style.padding = '16px 20px';
+            headerContent.style.minHeight = '90px';
+            headerContent.style.display = 'flex';
+            headerContent.style.flexDirection = 'column';
+            headerContent.style.justifyContent = 'center';
+          }
+          
+          // S'assurer que le badge (image) est bien positionné en bas à gauche
+          const badge = clonedElement.querySelector('.circuit-court-badge');
+          if (badge && badge.tagName === 'IMG') {
+            // Si l'image n'est pas encore en data URI dans le clone, essayer de la convertir
+            if (badge.src && !badge.src.startsWith('data:')) {
+              // Dans le clone, on ne peut pas convertir directement, mais on peut copier le src de l'original
+              const originalBadge = element.querySelector('.circuit-court-badge');
+              if (originalBadge && originalBadge.src && originalBadge.src.startsWith('data:')) {
+                badge.src = originalBadge.src;
+              }
+            }
+            badge.style.position = 'absolute';
+            badge.style.bottom = '0';
+            badge.style.left = '0';
+            badge.style.margin = '0 0 0 20px'; /* Margin-left pour ne pas coller au bord */
+            badge.style.padding = '0';
+            badge.style.height = '80px'; /* Image agrandie */
+            badge.style.maxWidth = '200px'; /* Largeur maximale augmentée */
+            badge.style.objectFit = 'contain';
+            badge.style.zIndex = '100';
+          }
+          
+          // S'assurer que le h1 reste centré dans la bande orange
+          const h1 = clonedElement.querySelector('.header-content h1');
           if (h1) {
             h1.style.textAlign = 'center';
-            h1.style.marginLeft = 'auto';
-            h1.style.marginRight = 'auto';
+            h1.style.margin = '0 0 4px 0';
+            h1.style.padding = '0';
+            h1.style.color = 'white';
           }
           
-          const slogan = clonedElement.querySelector('.slogan');
+          // S'assurer que le slogan reste centré dans la bande orange
+          const slogan = clonedElement.querySelector('.header-content .slogan');
           if (slogan) {
             slogan.style.textAlign = 'center';
-            slogan.style.marginLeft = 'auto';
-            slogan.style.marginRight = 'auto';
+            slogan.style.margin = '0';
+            slogan.style.padding = '0';
+            slogan.style.color = 'white';
           }
           
+          // Footer centré - S'assurer qu'il est visible
           const footer = clonedElement.querySelector('.otera-footer');
           if (footer) {
             footer.style.textAlign = 'center';
-            footer.style.marginLeft = 'auto';
-            footer.style.marginRight = 'auto';
+            footer.style.marginTop = 'auto';
+            footer.style.flexShrink = '0';
+            footer.style.minHeight = '50px';
+            footer.style.padding = '12px 20px';
           }
           
           const clonedHtml = clonedElement.innerHTML;
           console.log('📋 Clone HTML - Caractéristiques présentes:', clonedHtml.includes('Caractéristiques'));
           console.log('📋 Clone - Largeur forcée:', clonedElement.style.width);
+          console.log('📋 Clone - Dimensions A5:', a5Width + 'x' + elementHeight);
         }
       }
     });
@@ -385,7 +645,6 @@ async function downloadPDF() {
     const imgData = canvas.toDataURL('image/png', 0.95);
     const { jsPDF } = window.jspdf;
 
-    // Format A5 (148 x 210 mm)
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -393,12 +652,9 @@ async function downloadPDF() {
       compress: true
     });
 
-    // Dimensions A5 en mm (format standard)
     const pdfWidth = 148;
     const pdfHeight = 210;
     
-    // Calculer les dimensions réelles de l'image capturée
-    // Le canvas a une largeur = a5Width * scale et hauteur = elementHeight * scale
     const actualWidth = canvas.width / scale;
     const actualHeight = canvas.height / scale;
     
