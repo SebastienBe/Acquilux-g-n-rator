@@ -1,0 +1,51 @@
+/* ========================================
+   STYLES BADGES
+   ======================================== */
+
+/* Badge CIRCUIT-COURT - Image en bas à gauche du PDF */
+#pdfPreview .circuit-court-badge {
+  position: absolute;
+  bottom: 0; /* Collé au bas du PDF */
+  left: 0; /* Aligné à gauche */
+  width: auto;
+  height: 80px; /* Hauteur augmentée pour agrandir l'image */
+  max-width: 200px; /* Largeur maximale augmentée */
+  object-fit: contain; /* Conserver les proportions */
+  z-index: 100; /* Au-dessus de tout le contenu */
+  margin: 0 0 0 20px; /* Margin-left pour ne pas coller au bord gauche */
+  padding: 0;
+}
+
+/* Masquer le badge quand la classe hide-badge est présente */
+#pdfPreview.hide-badge .circuit-court-badge {
+  display: none;
+}
+
+/* Badge group - conteneur pour les badges multiples */
+#pdfPreview .badge-group {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  z-index: 100;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Permet de cliquer à travers le conteneur */
+}
+
+#pdfPreview .badge-instance {
+  position: absolute;
+  max-width: 240px;
+  min-height: 40px;
+  height: auto;
+  object-fit: contain;
+  z-index: 100;
+  cursor: move;
+  pointer-events: auto; /* Réactive les événements sur les badges */
+}
+
+

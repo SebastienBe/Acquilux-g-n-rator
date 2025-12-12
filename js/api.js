@@ -6,9 +6,10 @@
  * Appelle le webhook N8N pour générer la fiche produit
  * @param {string} productName - Nom du produit
  * @param {Function} onProgress - Callback pour mettre à jour le loader
+ * @param {string} [badgeName] - Nom/slug du badge à utiliser
  * @returns {Promise<Object>} - Données de la fiche générée
  */
-async function callN8nWebhook(productName, onProgress) {
+async function callN8nWebhook(productName, onProgress, badgeName) {
   if (onProgress) {
     onProgress('Génération par l\'IA...');
   }
@@ -23,7 +24,8 @@ async function callN8nWebhook(productName, onProgress) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        productName: productName
+        productName: productName,
+        badge: badgeName || undefined
       }),
       signal: controller.signal
     });
@@ -99,6 +101,73 @@ async function callN8nWebhook(productName, onProgress) {
     }
 
     throw error;
+  }
+}
+
+// ========================================
+// RÉCUPÉRATION DE LA LISTE DES BADGES
+// ========================================
+async function fetchBadgeList() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), CONFIG.TIMEOUT);
+
+  try {
+    const response = await fetch(CONFIG.N8N_BADGE_LIST_URL, {
+      method: 'GET',
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Erreur HTTP ${response.status}`);
+    }
+
+    let data = await response.json();
+
+    // n8n peut renvoyer différents formats : tableau direct, tableau avec json, ou objet
+    if (Array.isArray(data) && data.length > 0 && data[0].json) {
+      data = data.map(d => d.json);
+    } else if (data && typeof data === 'object' && data.json) {
+      data = data.json;
+    }
+
+    // Déplier les enveloppes éventuelles (success/data/badges/items/...)
+    if (!Array.isArray(data) && data && typeof data === 'object') {
+      // Cas courant : { success: true, data: { badges: [...] } }
+      if (data.data && Array.isArray(data.data.badges)) {
+        data = data.data.badges;
+      } else {
+        const candidates = [
+          data.data,
+          data.badges,
+          data.items,
+          data.results,
+          data.payload,
+          data.list
+        ];
+        const foundArray = candidates.find(Array.isArray);
+        if (foundArray) {
+          data = foundArray;
+        } else {
+          const firstArray = Object.values(data).find(Array.isArray);
+          if (firstArray) {
+            data = firstArray;
+          }
+        }
+      }
+    }
+
+    if (!Array.isArray(data)) {
+      console.warn('⚠️ Format inattendu pour la liste des badges, enveloppe dans un tableau:', data);
+      data = [data];
+    }
+
+    return data;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    console.error('❌ Erreur dans fetchBadgeList:', error);
+    return [];
   }
 }
 

@@ -1,5 +1,5 @@
 body {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #F6E2BE;
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -8,9 +8,9 @@ body {
 }
 
 .container {
-  background: var(--color-white);
+  background: #FFFFFF; /* Blanc */
   border-radius: 20px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 4px 16px rgba(96, 25, 26, 0.1), 0 1px 4px rgba(96, 25, 26, 0.05); /* Ombre avec teinte bordeaux */
   padding: 60px 40px;
   max-width: 500px;
   width: 100%;
@@ -24,6 +24,13 @@ body {
   animation: bounce 2s infinite;
 }
 
+.logo img {
+  height: 89px; /* +25px vs origine (74px + 15px) */
+  width: auto;
+  display: inline-block;
+  vertical-align: middle;
+}
+
 @keyframes bounce {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
@@ -31,15 +38,16 @@ body {
 
 h1 {
   font-size: 2rem;
-  color: var(--color-text);
+  color: #60191A; /* Bordeaux */
   margin-bottom: 10px;
   font-weight: 700;
 }
 
 .subtitle {
   font-size: 1rem;
-  color: #7f8c8d;
+  color: #60191A; /* Bordeaux */
   margin-bottom: 40px;
+  opacity: 0.8;
 }
 
 .form-group {
@@ -50,7 +58,7 @@ h1 {
 label {
   display: block;
   font-weight: 600;
-  color: var(--color-text);
+  color: #60191A; /* Bordeaux */
   margin-bottom: 10px;
   font-size: 0.95rem;
 }
@@ -59,16 +67,17 @@ input[type="text"] {
   width: 100%;
   padding: 16px 20px;
   font-size: 1.1rem;
-  border: 2px solid #e0e0e0;
+  border: 2px solid #B5DBE8; /* Bleu clair */
   border-radius: 12px;
   transition: all 0.3s ease;
   font-family: inherit;
+  background: #FFFFFF;
 }
 
 input[type="text"]:focus {
   outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.1);
+  border-color: #E65B0C; /* Orange */
+  box-shadow: 0 0 0 4px rgba(230, 91, 12, 0.1);
 }
 
 .btn {
@@ -77,18 +86,22 @@ input[type="text"]:focus {
   font-size: 1.1rem;
   justify-content: center;
   border-radius: 12px;
+  background: linear-gradient(135deg, #E65B0C 0%, #60191A 100%); /* Orange vers Bordeaux */
+  color: #FFFFFF; /* Blanc */
+  border: none;
 }
 
 .examples {
   margin-top: 30px;
   padding-top: 30px;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid #B5DBE8; /* Bleu clair */
 }
 
 .examples-title {
   font-size: 0.9rem;
-  color: #7f8c8d;
+  color: #60191A; /* Bordeaux */
   margin-bottom: 15px;
+  opacity: 0.8;
 }
 
 .examples-list {
@@ -100,18 +113,19 @@ input[type="text"]:focus {
 
 .example-tag {
   padding: 8px 16px;
-  background: #f8f9fa;
-  border: 1px solid #e0e0e0;
+  background: #FFFFFF; /* Blanc */
+  border: 1px solid #B5DBE8; /* Bleu clair */
   border-radius: 20px;
   font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  color: #60191A; /* Bordeaux */
 }
 
 .example-tag:hover {
-  background: var(--color-primary);
-  color: var(--color-white);
-  border-color: var(--color-primary);
+  background: #E65B0C; /* Orange */
+  color: #FFFFFF; /* Blanc */
+  border-color: #E65B0C;
   transform: scale(1.05);
 }
 
@@ -127,11 +141,13 @@ input[type="text"]:focus {
 
 .loader .spinner {
   margin: 0 auto 15px;
+  border-top-color: #E65B0C; /* Orange */
 }
 
 .loader-text {
-  color: #7f8c8d;
+  color: #60191A; /* Bordeaux */
   font-size: 0.95rem;
+  opacity: 0.8;
 }
 
 @media (max-width: 600px) {

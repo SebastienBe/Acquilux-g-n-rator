@@ -35,6 +35,84 @@ body {
   align-items: center;
 }
 
+.badge-layout-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.badge-layout-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.badge-layout-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.badge-layout-controls .control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 120px;
+}
+
+.badge-layout-controls label {
+  font-size: 0.8rem;
+  color: #555;
+}
+
+.badge-layout-controls input[type="range"] {
+  width: 100%;
+}
+
+.badge-select-container select {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #d7d7d7;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.95rem;
+  min-width: 200px;
+}
+
+.badge-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 220px;
+}
+
+.badge-layout-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 220px;
+}
+
+.badge-choice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.badge-choice input {
+  accent-color: var(--color-primary);
+}
+
 /* Switch Toggle pour le badge */
 .badge-toggle-container {
   display: flex;

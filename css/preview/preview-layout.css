@@ -1,0 +1,71 @@
+/* ========================================
+   LAYOUT GÉNÉRAL
+   ======================================== */
+
+body {
+  background: var(--color-bg);
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.header {
+  background: var(--color-white);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  border-radius: 12px;
+  margin-bottom: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.header-title h1 {
+  font-size: 1.5rem;
+  color: var(--color-text);
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* PDF Preview Container - Identité Otera */
+.pdf-wrapper {
+  background: #F5F0E8; /* Beige clair comme le fond du site */
+  border-radius: 0;
+  box-shadow: none;
+  padding: 30px;
+  margin-bottom: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Loading, Error states */
+.loading {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.error {
+  padding: 30px;
+  border-radius: 12px;
+  text-align: center;
+}
+
+

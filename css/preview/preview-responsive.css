@@ -1,0 +1,74 @@
+/* ========================================
+   RESPONSIVE & PRINT
+   ======================================== */
+
+/* Responsive pour mobile (preview seulement) */
+@media (max-width: 768px) {
+  .dashboard-main {
+    padding: 12px;
+  }
+
+  #pdfPreview {
+    width: 100%;
+    max-width: 559px;
+    height: auto;
+    min-height: 794px; /* Hauteur A5 */
+    padding: 0; /* Pas de padding, géré par les marges internes */
+    aspect-ratio: auto;
+    margin: 0 auto; /* Centrage horizontal */
+  }
+
+  /* Ajustements de taille pour mobile tout en gardant les proportions A5 */
+  #pdfPreview h1 {
+    font-size: 1.45rem;
+  }
+
+  #pdfPreview h2 {
+    font-size: 0.9rem;
+  }
+  
+  #pdfPreview .slogan {
+    font-size: 0.75rem;
+  }
+  
+  #pdfPreview ul li {
+    font-size: 0.71rem;
+  }
+  
+  #pdfPreview .recipe {
+    padding: 10px 12px;
+  }
+  
+  #pdfPreview .recipe strong {
+    font-size: 0.78rem;
+  }
+  
+  #pdfPreview .recipe p {
+    font-size: 0.68rem;
+  }
+}
+
+/* Optimisation impression/PDF */
+@media print {
+  body {
+    background: white;
+    padding: 0;
+  }
+
+  .header,
+  .pdf-wrapper {
+    display: none;
+  }
+
+  #pdfPreview {
+    width: 148mm; /* Largeur A5 */
+    height: 210mm; /* Hauteur A5 */
+    max-width: 148mm;
+    min-height: 210mm;
+    box-shadow: none;
+    margin: 0;
+    padding: 0; /* Pas de padding, géré par les marges internes */
+    border-radius: 0; /* Pas de bords arrondis à l'impression */
+  }
+}
+

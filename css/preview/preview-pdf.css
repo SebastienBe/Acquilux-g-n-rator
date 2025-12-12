@@ -1,0 +1,313 @@
+/* ========================================
+   STYLES PDF PREVIEW
+   ======================================== */
+
+/* Format A5 exact : 148mm x 210mm = 559px x 794px à 96 DPI - Style moderne */
+#pdfPreview {
+  width: 559px; /* Largeur fixe A5 */
+  max-width: 559px;
+  min-height: 794px; /* Hauteur minimale A5 */
+  max-height: 794px; /* Hauteur maximale A5 pour forcer le footer visible */
+  height: auto;
+  background: #F6E2BE; /* Fond beige identité Otera */
+  padding: 0;
+  font-family: 'Source Code Pro', monospace; /* Typographie principale : Source Code Pro */
+  color: var(--color-text);
+  line-height: 1.5; /* Réduit de 1.6 à 1.5 pour économiser l'espace */
+  overflow: hidden; /* Pour que la bande orange suive les bords arrondis */
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04); /* Ombre douce moderne */
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  justify-content: space-between; /* Distribuer l'espace entre contenu et footer */
+  align-items: stretch;
+  letter-spacing: -0.01em;
+  border-radius: 8px; /* Bords arrondis modernes */
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* Ajustements pour éviter le débordement - Style Apple */
+#pdfPreview {
+  box-sizing: border-box;
+}
+
+#pdfPreview * {
+  box-sizing: border-box;
+}
+
+/* Contenu principal - peut rétrécir si nécessaire pour laisser place au footer */
+#pdfPreview > *:not(.otera-footer) {
+  flex-shrink: 1;
+  min-height: 0;
+}
+
+/* Espacement et équilibre */
+#pdfPreview > *:last-child {
+  margin-bottom: 0;
+}
+
+/* Bande orange en haut - Style moderne - Utilise un élément réel au lieu de ::after */
+#pdfPreview .header-orange-band {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 90px; /* Hauteur augmentée pour contenir le titre, sous-titre et padding */
+  background: var(--color-badge); /* Orange #E65B0C */
+  z-index: 1;
+  border-radius: 8px 8px 0 0; /* Bords arrondis en haut pour la preview */
+}
+
+/* Ancien ::after - gardé pour compatibilité mais non utilisé */
+#pdfPreview::after {
+  display: none; /* Désactivé, on utilise .header-orange-band à la place */
+}
+
+/* Conteneur du header (titre + slogan) dans la bande orange */
+#pdfPreview .header-content {
+  position: relative;
+  z-index: 10;
+  padding: 10px 20px 10px 20px; /* Padding par défaut */
+  min-height: 90px; /* S'assurer que le conteneur correspond à la bande orange */
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Centrer verticalement le contenu */
+}
+
+/* Titre principal - Dans la bande orange, en blanc - Centré */
+#pdfPreview .header-content h1 {
+  font-family: 'Source Code Pro', monospace;
+  font-size: 1.4rem;
+  color: white; /* Blanc dans la bande orange */
+  text-align: center;
+  margin: 0 0 4px 0;
+  padding: 0;
+  font-weight: 900; /* Black - plus gras que ExtraBold */
+  line-height: 1.2;
+  letter-spacing: -0.02em; /* Tracking serré moderne */
+  text-transform: none;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Slogan - Dans la bande orange, sous le titre - Centré */
+#pdfPreview .header-content .slogan {
+  font-family: 'Source Code Pro', monospace;
+  text-align: center;
+  font-size: 0.75rem;
+  color: white; /* Blanc pour meilleur contraste sur orange */
+  margin: 0;
+  padding: 0;
+  font-weight: 300; /* Light */
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  font-style: normal; /* Pas d'italique pour meilleure lisibilité */
+  max-width: 100%;
+  box-sizing: border-box;
+  opacity: 0.95;
+}
+
+/* Titres de sections - Style moderne - Espacement optimisé pour A5 */
+#pdfPreview h2 {
+  font-family: 'Source Code Pro', monospace;
+  font-size: 0.75rem; /* Réduit de 0.78 à 0.75 */
+  color: var(--color-text);
+  margin: 12px 20px 6px 20px; /* Espacement réduit : 12px au lieu de 16px, 6px au lieu de 8px */
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700; /* Bold */
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  width: calc(100% - 40px);
+  box-sizing: border-box;
+}
+
+#pdfPreview h2:first-of-type {
+  margin-top: 12px; /* Centrage content par défaut */
+}
+
+#pdfPreview h2 .emoji {
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+
+/* Espacement optimisé pour A5 */
+#pdfPreview h2 + ul {
+  margin-top: 4px; /* Réduit de 6px à 4px */
+}
+
+/* Optimisation supplémentaire pour tenir dans A5 */
+#pdfPreview h2:not(:first-of-type) {
+  margin-top: 4px; /* Marge sections par défaut */
+}
+
+/* Premier h2 après le header */
+#pdfPreview .header-content + h2 {
+  margin-top: 12px; /* Centrage content par défaut */
+}
+
+/* Listes - Style moderne - Espacement optimisé pour A5 */
+#pdfPreview ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 20px 12px 20px; /* Espacement réduit pour A5 */
+  width: calc(100% - 40px);
+  box-sizing: border-box;
+}
+
+#pdfPreview ul li {
+  padding: 4px 0 4px 18px; /* Padding réduit */
+  position: relative;
+  line-height: 1.5; /* Réduit de 1.6 à 1.5 */
+  font-size: 0.72rem; /* Réduit de 0.74 à 0.72 */
+  color: var(--color-text);
+  margin-bottom: 2px; /* Réduit de 3px à 2px */
+  font-family: 'Source Code Pro', monospace;
+  font-weight: 300; /* Light */
+  letter-spacing: -0.01em;
+}
+
+/* Puces modernes - cercles */
+#pdfPreview ul li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  opacity: 0.7;
+}
+
+#pdfPreview ul li strong {
+  font-family: 'Source Code Pro', monospace;
+  color: var(--color-primary);
+  font-weight: 600; /* SemiBold */
+  font-size: 0.72rem; /* Réduit pour correspondre au li */
+  margin-right: 4px; /* Réduit de 6px à 4px */
+  letter-spacing: -0.01em;
+}
+
+/* Recettes - Style moderne avec cartes - Espacement optimisé pour A5 */
+#pdfPreview .recipe {
+  background: rgba(255, 255, 255, 0.5); /* Fond blanc semi-transparent */
+  border-left: 3px solid var(--color-primary);
+  padding: 10px 14px; /* Réduit de 14px 16px */
+  margin: 6px 20px; /* Réduit de 8px 24px */
+  border-radius: 6px; /* Bords arrondis modernes */
+  page-break-inside: avoid;
+  width: calc(100% - 40px);
+  box-sizing: border-box;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05); /* Ombre douce */
+  backdrop-filter: blur(8px); /* Effet de flou moderne */
+  flex-shrink: 1;
+  min-height: 0;
+}
+
+#pdfPreview .recipe strong {
+  font-family: 'Source Code Pro', monospace;
+  display: block;
+  font-size: 0.75rem; /* Réduit de 0.78 à 0.75 */
+  color: var(--color-primary);
+  margin-bottom: 6px; /* Réduit de 8px à 6px */
+  font-weight: 600; /* SemiBold */
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+
+#pdfPreview .recipe p {
+  font-family: 'Source Code Pro', monospace;
+  margin: 4px 0; /* Réduit de 6px à 4px */
+  line-height: 1.5; /* Réduit de 1.6 à 1.5 */
+  font-size: 0.7rem; /* Réduit de 0.72 à 0.7 */
+  color: var(--color-text);
+  font-weight: 300; /* Light */
+  letter-spacing: -0.01em;
+}
+
+#pdfPreview .recipe p.recipe-ingredients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: flex-start;
+  margin-bottom: 4px;
+}
+
+#pdfPreview .recipe p.recipe-ingredients strong {
+  font-family: 'Source Code Pro', monospace;
+  font-weight: 500; /* Medium */
+  font-size: 0.7rem; /* Réduit pour correspondre */
+  color: var(--color-primary);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+#pdfPreview .recipe p.recipe-ingredients .ingredients-content {
+  flex: 1;
+  min-width: 0; /* Permet au contenu de se rétrécir si nécessaire */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+#pdfPreview .recipe p strong {
+  font-family: 'Source Code Pro', monospace;
+  font-weight: 500; /* Medium */
+  font-size: 0.7rem; /* Réduit pour correspondre */
+  color: var(--color-primary);
+}
+
+/* Astuce - Style moderne - Espacement réduit */
+#pdfPreview .recipe em {
+  font-family: 'Source Code Pro', monospace;
+  display: block;
+  margin-top: 6px; /* Réduit de 8px à 6px */
+  padding: 6px 10px; /* Réduit de 8px 12px */
+  background: rgba(255, 255, 255, 0.6);
+  border-left: 2px solid rgba(139, 195, 74, 0.3);
+  border-radius: 4px;
+  color: var(--color-secondary);
+  font-weight: 300; /* Light */
+  font-style: normal; /* Pas d'italique pour le bloc entier */
+  font-size: 0.68rem; /* Réduit de 0.7 à 0.68 */
+  letter-spacing: -0.01em;
+  line-height: 1.5;
+}
+
+/* Footer Otera - Style moderne - Toujours visible */
+#pdfPreview .otera-footer {
+  margin-top: auto;
+  padding: 36px 20px; /* Taille footer par défaut */
+  border-top: 1px solid rgba(230, 91, 12, 0.15);
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0; /* Empêcher le footer de rétrécir */
+  min-height: 20px; /* Hauteur minimale réduite pour la barre de séparation */
+}
+
+#pdfPreview .otera-logo {
+  font-family: 'Source Code Pro', monospace;
+  font-size: 0.95rem;
+  font-weight: 700; /* Bold */
+  color: var(--color-text);
+  letter-spacing: 1.2px;
+  margin-bottom: 4px;
+  text-transform: lowercase;
+  opacity: 0.9;
+}
+
+#pdfPreview .otera-tagline {
+  font-family: 'Source Code Pro', monospace;
+  font-size: 0.68rem;
+  color: var(--color-secondary);
+  font-style: normal;
+  letter-spacing: 0.2px;
+  font-weight: 500; /* Medium */
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+

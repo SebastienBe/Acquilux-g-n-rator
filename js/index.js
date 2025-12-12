@@ -7,6 +7,7 @@ const submitBtn = document.getElementById('submitBtn');
 const loader = document.getElementById('loader');
 const loaderText = document.getElementById('loaderText');
 const errorDiv = document.getElementById('error');
+const homeLogo = document.getElementById('homeLogo');
 
 // ========================================
 // INITIALISATION
@@ -14,6 +15,7 @@ const errorDiv = document.getElementById('error');
 document.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
   checkUrlParams();
+  setHomeLogo();
 });
 
 function setupEventListeners() {
@@ -43,6 +45,13 @@ function checkUrlParams() {
       input.value = decodeURIComponent(product);
     }
   }
+}
+
+function setHomeLogo() {
+  if (!homeLogo || !CONFIG || !CONFIG.N8N_BADGE_IMAGE_URL) return;
+  const base = CONFIG.N8N_BADGE_IMAGE_URL;
+  const cache = Date.now();
+  homeLogo.src = `${base}?name=logo_O_orange&cb=${cache}`;
 }
 
 // ========================================

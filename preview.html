@@ -12,12 +12,15 @@
   <!-- Google Fonts - Style Apple (SF Pro / Inter) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Code+Pro:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
   
   <!-- CSS -->
   <link rel="stylesheet" href="css/variables.css">
   <link rel="stylesheet" href="css/main.css">
-  <link rel="stylesheet" href="css/preview.css">
+  <link rel="stylesheet" href="css/preview/preview-dashboard.css">
+  <link rel="stylesheet" href="css/preview/preview-pdf.css">
+  <link rel="stylesheet" href="css/preview/preview-badges.css">
+  <link rel="stylesheet" href="css/preview/preview-responsive.css">
   
   <style>
     /* Variables spécifiques pour preview - Identité Otera authentique */
@@ -36,33 +39,356 @@
   </style>
 </head>
 <body>
-  <div class="container">
-    <!-- Header -->
-    <div class="header">
-      <div class="header-title">
-        <span style="font-size: 2rem;">🍇</span>
+  <!-- Header fixe -->
+  <header class="dashboard-header">
+    <div class="header-content">
+      <div class="header-left">
         <h1 id="pageTitle">Prévisualisation</h1>
       </div>
       <div class="header-actions">
-        <div class="badge-toggle-container">
-          <label class="badge-toggle-label">
-            <input type="checkbox" id="badgeToggle" checked>
-            <span class="badge-toggle-text">Badge Circuit-court</span>
-          </label>
-        </div>
-        <button class="btn btn-primary" id="downloadBtn" style="display: none;">
-          <span>⬇️</span>
-          <span>Télécharger le PDF</span>
+        <button class="btn-icon" id="badgesToggleBtn" aria-label="Gérer les atouts">
+          <span class="icon">🏷️</span>
+          <span class="badge-count" id="badgeCount">0</span>
         </button>
-        <a href="index.html?return=true" class="btn btn-secondary">
-          <span>🔄</span>
-          <span>Nouvelle fiche</span>
+        <button class="btn-icon" id="downloadBtn" style="display: none;" aria-label="Télécharger PDF">
+          <span class="icon">⬇️</span>
+        </button>
+        <a href="index.html?return=true" class="btn-icon" aria-label="Nouvelle fiche">
+          <span class="icon">🔄</span>
         </a>
       </div>
     </div>
+  </header>
 
-    <!-- Contenu -->
-    <div class="pdf-wrapper">
+  <!-- Zone principale -->
+  <main class="dashboard-main">
+    <!-- Drawer pour la gestion des badges (visible sur desktop, drawer sur mobile) -->
+    <div class="badges-drawer" id="badgesDrawer">
+      <div class="drawer-overlay" id="drawerOverlay"></div>
+      <div class="drawer-content">
+        <div class="drawer-header">
+          <h2 id="drawerTitle">Gérer les atouts</h2>
+          <button class="drawer-close" id="drawerClose" aria-label="Fermer">
+            <span>✕</span>
+          </button>
+        </div>
+        
+        <div class="drawer-body">
+          <!-- Onglets de navigation -->
+          <div class="drawer-tabs" id="drawerTabs">
+            <button class="tab-btn active" data-tab="badges">🏷️ Atouts</button>
+            <button class="tab-btn" data-tab="styles">🎨 Styles</button>
+            <button class="tab-btn" data-tab="content">📝 Contenu</button>
+          </div>
+
+          <!-- Onglet: Atouts -->
+          <div class="tab-content active" id="tab-badges">
+            <!-- Section: Sélection des badges -->
+            <section class="badges-section">
+              <h3>Ajouter des atouts</h3>
+              <div class="badge-choices" id="badgeChoices">
+                <span class="badge-choices-loading">Chargement des badges...</span>
+              </div>
+            </section>
+
+            <!-- Section: Configuration des badges sélectionnés -->
+            <section class="badges-config-section" id="badgeLayoutContainer">
+              <h3>Configuration</h3>
+              <p class="empty-state">Sélectionnez un atout pour le configurer</p>
+            </section>
+          </div>
+
+          <!-- Onglet: Styles -->
+          <div class="tab-content" id="tab-styles">
+            <!-- Couleurs -->
+            <section class="control-section">
+              <h3>Couleurs</h3>
+              <div class="control-group">
+                <label class="control-label">
+                  <span>Couleur header</span>
+                  <input type="color" id="styleHeaderColor" value="#E65B0C" class="color-input">
+                </label>
+              </div>
+              <div class="control-group">
+                <label class="control-label">
+                  <span>Couleur texte</span>
+                  <input type="color" id="styleTextColor" value="#2C2E2D" class="color-input">
+                </label>
+              </div>
+              <div class="control-group">
+                <label class="control-label">
+                  <span>Couleur fond</span>
+                  <input type="color" id="styleBgColor" value="#F6E2BE" class="color-input">
+                </label>
+              </div>
+              <div class="control-group">
+                <label class="control-label">
+                  <span>Couleur accent</span>
+                  <input type="color" id="styleAccentColor" value="#E65B0C" class="color-input">
+                </label>
+              </div>
+            </section>
+
+            <!-- Typographie -->
+            <section class="control-section">
+              <h3>Typographie</h3>
+              
+              <!-- H1 -->
+              <div class="control-group">
+                <label class="control-label" for="styleH1Size">
+                  <span>Taille H1</span>
+                  <span class="control-value" id="styleH1SizeValue">1.4rem</span>
+                </label>
+                <input type="range" id="styleH1Size" min="1" max="2.5" step="0.1" value="1.4" class="range-input">
+              </div>
+              <div class="control-group">
+                <label class="control-label" for="styleH1Weight">
+                  <span>Poids H1</span>
+                </label>
+                <select id="styleH1Weight" class="select-input">
+                  <option value="300">Light (300)</option>
+                  <option value="400">Regular (400)</option>
+                  <option value="500">Medium (500)</option>
+                  <option value="600">SemiBold (600)</option>
+                  <option value="700">Bold (700)</option>
+                  <option value="800">ExtraBold (800)</option>
+                  <option value="900" selected>Black (900)</option>
+                </select>
+              </div>
+
+              <!-- H2 -->
+              <div class="control-group">
+                <label class="control-label" for="styleH2Size">
+                  <span>Taille H2</span>
+                  <span class="control-value" id="styleH2SizeValue">0.75rem</span>
+                </label>
+                <input type="range" id="styleH2Size" min="0.5" max="1.2" step="0.05" value="0.75" class="range-input">
+              </div>
+              <div class="control-group">
+                <label class="control-label" for="styleH2Weight">
+                  <span>Poids H2</span>
+                </label>
+                <select id="styleH2Weight" class="select-input">
+                  <option value="300">Light (300)</option>
+                  <option value="400">Regular (400)</option>
+                  <option value="500">Medium (500)</option>
+                  <option value="600">SemiBold (600)</option>
+                  <option value="700" selected>Bold (700)</option>
+                  <option value="800">ExtraBold (800)</option>
+                  <option value="900">Black (900)</option>
+                </select>
+              </div>
+
+              <!-- Paragraphes / Texte -->
+              <div class="control-group">
+                <label class="control-label" for="styleTextSize">
+                  <span>Taille texte</span>
+                  <span class="control-value" id="styleTextSizeValue">0.72rem</span>
+                </label>
+                <input type="range" id="styleTextSize" min="0.5" max="1" step="0.02" value="0.72" class="range-input">
+              </div>
+              <div class="control-group">
+                <label class="control-label" for="styleTextWeight">
+                  <span>Poids texte</span>
+                </label>
+                <select id="styleTextWeight" class="select-input">
+                  <option value="300" selected>Light (300)</option>
+                  <option value="400">Regular (400)</option>
+                  <option value="500">Medium (500)</option>
+                  <option value="600">SemiBold (600)</option>
+                  <option value="700">Bold (700)</option>
+                  <option value="800">ExtraBold (800)</option>
+                  <option value="900">Black (900)</option>
+                </select>
+              </div>
+
+              <!-- Slogan -->
+              <div class="control-group">
+                <label class="control-label" for="styleSloganWeight">
+                  <span>Poids slogan</span>
+                </label>
+                <select id="styleSloganWeight" class="select-input">
+                  <option value="300" selected>Light (300)</option>
+                  <option value="400">Regular (400)</option>
+                  <option value="500">Medium (500)</option>
+                  <option value="600">SemiBold (600)</option>
+                  <option value="700">Bold (700)</option>
+                  <option value="800">ExtraBold (800)</option>
+                  <option value="900">Black (900)</option>
+                </select>
+              </div>
+
+              <!-- Strong dans listes -->
+              <div class="control-group">
+                <label class="control-label" for="styleStrongWeight">
+                  <span>Poids strong (listes)</span>
+                </label>
+                <select id="styleStrongWeight" class="select-input">
+                  <option value="300">Light (300)</option>
+                  <option value="400">Regular (400)</option>
+                  <option value="500">Medium (500)</option>
+                  <option value="600" selected>SemiBold (600)</option>
+                  <option value="700">Bold (700)</option>
+                  <option value="800">ExtraBold (800)</option>
+                  <option value="900">Black (900)</option>
+                </select>
+              </div>
+
+              <!-- Footer logo -->
+              <div class="control-group">
+                <label class="control-label" for="styleFooterLogoWeight">
+                  <span>Poids logo footer</span>
+                </label>
+                <select id="styleFooterLogoWeight" class="select-input">
+                  <option value="300">Light (300)</option>
+                  <option value="400">Regular (400)</option>
+                  <option value="500">Medium (500)</option>
+                  <option value="600">SemiBold (600)</option>
+                  <option value="700" selected>Bold (700)</option>
+                  <option value="800">ExtraBold (800)</option>
+                  <option value="900">Black (900)</option>
+                </select>
+              </div>
+
+              <!-- Footer tagline -->
+              <div class="control-group">
+                <label class="control-label" for="styleFooterTaglineWeight">
+                  <span>Poids tagline footer</span>
+                </label>
+                <select id="styleFooterTaglineWeight" class="select-input">
+                  <option value="300">Light (300)</option>
+                  <option value="400">Regular (400)</option>
+                  <option value="500" selected>Medium (500)</option>
+                  <option value="600">SemiBold (600)</option>
+                  <option value="700">Bold (700)</option>
+                  <option value="800">ExtraBold (800)</option>
+                  <option value="900">Black (900)</option>
+                </select>
+              </div>
+            </section>
+
+            <!-- Espacements -->
+            <section class="control-section">
+              <h3>Espacements</h3>
+              <div class="control-group">
+                <label class="control-label" for="styleHeaderPadding">
+                  <span>Padding header</span>
+                  <span class="control-value" id="styleHeaderPaddingValue">10px</span>
+                </label>
+                <input type="range" id="styleHeaderPadding" min="8" max="32" step="2" value="10" class="range-input">
+              </div>
+              <div class="control-group">
+                <label class="control-label" for="styleFirstH2MarginTop">
+                  <span>Centrage content</span>
+                  <span class="control-value" id="styleFirstH2MarginTopValue">12px</span>
+                </label>
+                <input type="range" id="styleFirstH2MarginTop" min="0" max="60" step="2" value="12" class="range-input">
+              </div>
+              <div class="control-group">
+                <label class="control-label" for="styleSectionMargin">
+                  <span>Marge sections</span>
+                  <span class="control-value" id="styleSectionMarginValue">4px</span>
+                </label>
+                <input type="range" id="styleSectionMargin" min="4" max="24" step="2" value="4" class="range-input">
+              </div>
+              <div class="control-group">
+                <label class="control-label" for="styleContentPadding">
+                  <span>Padding contenu</span>
+                  <span class="control-value" id="styleContentPaddingValue">20px</span>
+                </label>
+                <input type="range" id="styleContentPadding" min="10" max="40" step="2" value="20" class="range-input">
+              </div>
+              <div class="control-group">
+                <label class="control-label" for="styleFooterPadding">
+                  <span>Taille footer</span>
+                  <span class="control-value" id="styleFooterPaddingValue">36px</span>
+                </label>
+                <input type="range" id="styleFooterPadding" min="0" max="80" step="2" value="36" class="range-input">
+              </div>
+            </section>
+          </div>
+
+          <!-- Onglet: Contenu -->
+          <div class="tab-content" id="tab-content">
+            <!-- Header -->
+            <section class="control-section">
+              <h3>📋 Header</h3>
+              <div class="control-group">
+                <label class="control-label" for="contentTitle">
+                  <span>Titre principal</span>
+                </label>
+                <input type="text" id="contentTitle" class="text-input" placeholder="Titre du produit">
+              </div>
+              <div class="control-group">
+                <label class="control-label" for="contentSlogan">
+                  <span>Slogan</span>
+                </label>
+                <input type="text" id="contentSlogan" class="text-input" placeholder="Un trésor de saveurs à découvrir">
+              </div>
+            </section>
+
+            <!-- Caractéristiques -->
+            <section class="control-section">
+              <div class="section-header">
+                <h3>🌿 Caractéristiques</h3>
+                <button class="btn-add" id="addCaracteristic" title="Ajouter une caractéristique">
+                  <span>+</span>
+                </button>
+              </div>
+              <div class="editable-list" id="caracteristicsList">
+                <!-- Les caractéristiques seront générées dynamiquement -->
+              </div>
+            </section>
+
+            <!-- Consommation -->
+            <section class="control-section">
+              <div class="section-header">
+                <h3>🍴 3 Façons de le Consommer</h3>
+                <button class="btn-add" id="addConsommation" title="Ajouter une façon de consommer">
+                  <span>+</span>
+                </button>
+              </div>
+              <div class="editable-list" id="consommationList">
+                <!-- Les façons de consommer seront générées dynamiquement -->
+              </div>
+            </section>
+
+            <!-- Recettes -->
+            <section class="control-section">
+              <div class="section-header">
+                <h3>👨‍🍳 Idées Recettes</h3>
+                <button class="btn-add" id="addRecette" title="Ajouter une recette">
+                  <span>+</span>
+                </button>
+              </div>
+              <div class="editable-list" id="recettesList">
+                <!-- Les recettes seront générées dynamiquement -->
+              </div>
+            </section>
+
+            <!-- Footer -->
+            <section class="control-section">
+              <h3>📄 Footer</h3>
+              <div class="control-group">
+                <label class="control-label" for="contentFooterLogo">
+                  <span>Logo</span>
+                </label>
+                <input type="text" id="contentFooterLogo" class="text-input" placeholder="otera">
+              </div>
+              <div class="control-group">
+                <label class="control-label" for="contentFooterTagline">
+                  <span>Tagline</span>
+                </label>
+                <input type="text" id="contentFooterTagline" class="text-input" placeholder="LE MARCHÉ DU FRAIS">
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PDF Preview -->
+    <div class="preview-container">
       <!-- Loading -->
       <div class="loading" id="loading">
         <div class="spinner"></div>
@@ -81,10 +407,43 @@
       <!-- PDF Preview -->
       <div id="pdfPreview" style="display: none;"></div>
     </div>
+  </main>
+      <div class="drawer-header">
+        <h2>Gérer les atouts</h2>
+        <button class="drawer-close" id="drawerClose" aria-label="Fermer">
+          <span>✕</span>
+        </button>
+      </div>
+      
+      <div class="drawer-body">
+        <!-- Section: Sélection des badges -->
+        <section class="badges-section">
+          <h3>Ajouter des atouts</h3>
+          <div class="badge-choices" id="badgeChoices">
+            <span class="badge-choices-loading">Chargement des badges...</span>
+          </div>
+        </section>
+
+        <!-- Section: Configuration des badges sélectionnés -->
+        <section class="badges-config-section" id="badgeLayoutContainer">
+          <h3>Configuration</h3>
+          <p class="empty-state">Sélectionnez un atout pour le configurer</p>
+        </section>
+      </div>
+    </div>
   </div>
 
   <!-- JavaScript -->
   <script src="js/config.js?v=1.1"></script>
-  <script src="js/preview.js?v=1.1"></script>
+  <script src="js/api.js?v=1.1"></script>
+  <script src="js/preview/preview-utils.js?v=1.1"></script>
+  <script src="js/preview/preview-html-generator.js?v=1.1"></script>
+  <script src="js/preview/preview-pdf-generator.js?v=1.1"></script>
+  <script src="js/preview/preview-display.js?v=1.1"></script>
+  <script src="js/preview/preview-data.js?v=1.1"></script>
+  <script src="js/preview/preview-badges.js?v=1.1"></script>
+  <script src="js/preview/preview-dashboard-controls.js?v=1.1"></script>
+  <script src="js/preview/preview-content-editor.js?v=1.1"></script>
+  <script src="js/preview/preview.js?v=1.1"></script>
 </body>
 </html>
