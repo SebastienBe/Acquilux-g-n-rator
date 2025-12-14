@@ -252,7 +252,7 @@ function parseAIResponse(aiResponse) {
         'En salade composée avec des herbes aromatiques',
         'Cuisiné pour révéler tous ses arômes subtils'
       ],
-      recettes: parsed.recettes.length > 0 ? parsed.recettes : [
+      recettes: (parsed.recettes && parsed.recettes.length > 0) ? parsed.recettes : [
         {
           type: 'Sucrée',
           nom: 'Délice fruité maison',
@@ -278,7 +278,7 @@ function parseAIResponse(aiResponse) {
           titre: !!parsed.titre,
           caracteristiques: parsed.caracteristiques.length,
           consommation: parsed.consommation.length,
-          recettes: parsed.recettes.length
+          recettes: parsed.recettes ? parsed.recettes.length : 0
         }
       }
     };
@@ -296,6 +296,10 @@ function parseAIResponse(aiResponse) {
     };
   }
 }
+
+
+
+
 
 
 

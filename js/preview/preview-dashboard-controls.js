@@ -15,8 +15,8 @@
     }
 
     setupTabs();
-    setupStyleControls();
-    setupContentControls();
+    // Désactivé - Les contrôles de style sont gérés par les panels Figma maintenant
+    // setupStyleControls();
     loadSavedSettings();
   }
 
@@ -30,8 +30,7 @@
 
     const tabTitles = {
       badges: 'Gérer les atouts',
-      styles: 'Styles du PDF',
-      content: 'Contenu du PDF'
+      styles: 'Styles du PDF'
     };
 
     tabButtons.forEach(btn => {
@@ -191,44 +190,6 @@
   // ========================================
   // CONTRÔLES DE CONTENU
   // ========================================
-  function setupContentControls() {
-    // Titre
-    const titleInput = document.getElementById('contentTitle');
-    if (titleInput) {
-      titleInput.addEventListener('input', (e) => {
-        const h1 = pdfPreview?.querySelector('.header-content h1');
-        if (h1) {
-          h1.textContent = e.target.value || 'Produit';
-          saveSetting('title', e.target.value);
-        }
-      });
-    }
-
-    // Slogan
-    const sloganInput = document.getElementById('contentSlogan');
-    if (sloganInput) {
-      sloganInput.addEventListener('input', (e) => {
-        const slogan = pdfPreview?.querySelector('.header-content .slogan');
-        if (slogan) {
-          slogan.textContent = e.target.value || 'Un trésor de saveurs à découvrir';
-          saveSetting('slogan', e.target.value);
-        }
-      });
-    }
-
-    // Footer vide - pas de contrôles de texte nécessaires
-    const footerLogoInput = document.getElementById('contentFooterLogo');
-    if (footerLogoInput) {
-      footerLogoInput.disabled = true;
-      footerLogoInput.placeholder = 'Désactivé - Footer vide';
-    }
-
-    const footerTaglineInput = document.getElementById('contentFooterTagline');
-    if (footerTaglineInput) {
-      footerTaglineInput.disabled = true;
-      footerTaglineInput.placeholder = 'Désactivé - Footer vide';
-    }
-  }
 
   // ========================================
   // HELPERS
@@ -293,101 +254,65 @@
   function loadSavedSettings() {
     const settings = getSettings();
     
-    // Appliquer les styles sauvegardés
+    // Appliquer les styles sauvegardés (uniquement les styles CSS, sans référencer les éléments qui n'existent plus)
     if (settings.headerColor) {
-      document.getElementById('styleHeaderColor').value = settings.headerColor;
       applyStyle('.header-orange-band', 'background', settings.headerColor);
     }
     if (settings.textColor) {
-      document.getElementById('styleTextColor').value = settings.textColor;
       applyStyle('#pdfPreview', 'color', settings.textColor);
     }
     if (settings.bgColor) {
-      document.getElementById('styleBgColor').value = settings.bgColor;
       applyStyle('#pdfPreview', 'background', settings.bgColor);
     }
     if (settings.accentColor) {
-      document.getElementById('styleAccentColor').value = settings.accentColor;
       applyStyle('#pdfPreview ul li strong, #pdfPreview .recipe strong, #pdfPreview .recipe p strong', 'color', settings.accentColor);
       applyStyle('#pdfPreview ul li::before', 'background', settings.accentColor);
       applyStyle('#pdfPreview .recipe', 'border-left-color', settings.accentColor);
     }
 
-    // Appliquer les valeurs de range
+    // Appliquer les valeurs de typographie
     if (settings.h1Size) {
-      const value = parseFloat(settings.h1Size);
-      document.getElementById('styleH1Size').value = value;
-      document.getElementById('styleH1SizeValue').textContent = settings.h1Size;
       applyStyle('#pdfPreview .header-content h1', 'font-size', settings.h1Size);
     }
     if (settings.h2Size) {
-      const value = parseFloat(settings.h2Size);
-      document.getElementById('styleH2Size').value = value;
-      document.getElementById('styleH2SizeValue').textContent = settings.h2Size;
       applyStyle('#pdfPreview h2', 'font-size', settings.h2Size);
     }
     if (settings.textSize) {
-      const value = parseFloat(settings.textSize);
-      document.getElementById('styleTextSize').value = value;
-      document.getElementById('styleTextSizeValue').textContent = settings.textSize;
       applyStyle('#pdfPreview ul li, #pdfPreview .recipe p', 'font-size', settings.textSize);
     }
     if (settings.firstH2MarginTop) {
-      const value = parseFloat(settings.firstH2MarginTop);
-      document.getElementById('styleFirstH2MarginTop').value = value;
-      document.getElementById('styleFirstH2MarginTopValue').textContent = settings.firstH2MarginTop;
       applyStyle('#pdfPreview h2:first-of-type', 'margin-top', settings.firstH2MarginTop);
       applyStyle('#pdfPreview .header-content + h2', 'margin-top', settings.firstH2MarginTop);
     }
 
     // Appliquer les poids de police
     if (settings.h1Weight) {
-      document.getElementById('styleH1Weight').value = settings.h1Weight;
       applyStyle('#pdfPreview .header-content h1', 'font-weight', settings.h1Weight);
     }
     if (settings.h2Weight) {
-      document.getElementById('styleH2Weight').value = settings.h2Weight;
       applyStyle('#pdfPreview h2', 'font-weight', settings.h2Weight);
     }
     if (settings.textWeight) {
-      document.getElementById('styleTextWeight').value = settings.textWeight;
       applyStyle('#pdfPreview ul li, #pdfPreview .recipe p, #pdfPreview .recipe em', 'font-weight', settings.textWeight);
     }
     if (settings.sloganWeight) {
-      document.getElementById('styleSloganWeight').value = settings.sloganWeight;
       applyStyle('#pdfPreview .header-content .slogan', 'font-weight', settings.sloganWeight);
     }
     if (settings.strongWeight) {
-      document.getElementById('styleStrongWeight').value = settings.strongWeight;
       applyStyle('#pdfPreview ul li strong', 'font-weight', settings.strongWeight);
     }
     if (settings.footerLogoWeight) {
-      document.getElementById('styleFooterLogoWeight').value = settings.footerLogoWeight;
       applyStyle('#pdfPreview .otera-logo', 'font-weight', settings.footerLogoWeight);
     }
     if (settings.footerTaglineWeight) {
-      document.getElementById('styleFooterTaglineWeight').value = settings.footerTaglineWeight;
       applyStyle('#pdfPreview .otera-tagline', 'font-weight', settings.footerTaglineWeight);
     }
 
     // Appliquer les espacements sauvegardés
     if (settings.headerPadding) {
-      const value = parseFloat(settings.headerPadding);
-      document.getElementById('styleHeaderPadding').value = value;
-      document.getElementById('styleHeaderPaddingValue').textContent = settings.headerPadding;
       applyStyle('#pdfPreview .header-content', 'padding', `${settings.headerPadding} 20px`);
     }
-    if (settings.firstH2MarginTop) {
-      const value = parseFloat(settings.firstH2MarginTop);
-      document.getElementById('styleFirstH2MarginTop').value = value;
-      document.getElementById('styleFirstH2MarginTopValue').textContent = settings.firstH2MarginTop;
-      applyStyle('#pdfPreview h2:first-of-type', 'margin-top', settings.firstH2MarginTop);
-      applyStyle('#pdfPreview .header-content + h2', 'margin-top', settings.firstH2MarginTop);
-    }
     if (settings.sectionMargin) {
-      const value = parseFloat(settings.sectionMargin);
-      document.getElementById('styleSectionMargin').value = value;
-      document.getElementById('styleSectionMarginValue').textContent = settings.sectionMargin;
       const allH2 = pdfPreview?.querySelectorAll('#pdfPreview h2');
       if (allH2) {
         allH2.forEach((h2, index) => {
@@ -398,39 +323,21 @@
       }
     }
     if (settings.contentPadding) {
-      const value = parseFloat(settings.contentPadding);
-      document.getElementById('styleContentPadding').value = value;
-      document.getElementById('styleContentPaddingValue').textContent = settings.contentPadding;
       applyStyle('#pdfPreview ul, #pdfPreview .recipe', 'margin-left', settings.contentPadding);
       applyStyle('#pdfPreview ul, #pdfPreview .recipe', 'margin-right', settings.contentPadding);
     }
     if (settings.footerPadding) {
-      const value = parseFloat(settings.footerPadding);
-      document.getElementById('styleFooterPadding').value = value;
-      document.getElementById('styleFooterPaddingValue').textContent = settings.footerPadding;
       applyStyle('#pdfPreview .otera-footer', 'padding', `${settings.footerPadding} 20px`);
     }
 
-    // Appliquer le contenu sauvegardé
+    // Appliquer le contenu sauvegardé (les éléments sont maintenant édités directement dans la preview)
     if (settings.title) {
-      document.getElementById('contentTitle').value = settings.title;
       const h1 = pdfPreview?.querySelector('.header-content h1');
       if (h1) h1.textContent = settings.title;
     }
     if (settings.slogan) {
-      document.getElementById('contentSlogan').value = settings.slogan;
       const slogan = pdfPreview?.querySelector('.header-content .slogan');
       if (slogan) slogan.textContent = settings.slogan;
-    }
-    if (settings.footerLogo) {
-      document.getElementById('contentFooterLogo').value = settings.footerLogo;
-      const logo = pdfPreview?.querySelector('.otera-logo');
-      if (logo) logo.textContent = settings.footerLogo;
-    }
-    if (settings.footerTagline) {
-      document.getElementById('contentFooterTagline').value = settings.footerTagline;
-      const tagline = pdfPreview?.querySelector('.otera-tagline');
-      if (tagline) tagline.textContent = settings.footerTagline;
     }
   }
 
@@ -473,15 +380,12 @@
     const headerBand = pdfPreview.querySelector('.header-orange-band');
     const textElement = pdfPreview.querySelector('ul li');
     const strongElement = pdfPreview.querySelector('ul li strong');
+    // Footer - éléments optionnels (peuvent ne pas exister)
+    const logo = pdfPreview.querySelector('.otera-footer .logo, .footer-logo');
+    const tagline = pdfPreview.querySelector('.otera-footer .tagline, .footer-tagline');
 
-    // Initialiser les inputs de contenu
-    if (h1 && document.getElementById('contentTitle')) {
-      document.getElementById('contentTitle').value = h1.textContent || '';
-    }
-    if (slogan && document.getElementById('contentSlogan')) {
-      document.getElementById('contentSlogan').value = slogan.textContent || '';
-    }
-    // Footer vide - pas de texte à initialiser
+    // Les éléments de contenu sont maintenant édités directement dans la preview
+    // Plus besoin d'initialiser les inputs car ils n'existent plus
 
     // Initialiser les couleurs depuis les styles calculés
     if (headerBand) {
@@ -533,15 +437,23 @@
       }
     }
     if (logo && document.getElementById('styleFooterLogoWeight')) {
+      try {
       const logoWeight = window.getComputedStyle(logo).fontWeight;
       if (logoWeight) {
         document.getElementById('styleFooterLogoWeight').value = normalizeFontWeight(logoWeight);
+        }
+      } catch (e) {
+        console.warn('Erreur lors de la lecture du style du logo:', e);
       }
     }
     if (tagline && document.getElementById('styleFooterTaglineWeight')) {
+      try {
       const taglineWeight = window.getComputedStyle(tagline).fontWeight;
       if (taglineWeight) {
         document.getElementById('styleFooterTaglineWeight').value = normalizeFontWeight(taglineWeight);
+        }
+      } catch (e) {
+        console.warn('Erreur lors de la lecture du style du tagline:', e);
       }
     }
 

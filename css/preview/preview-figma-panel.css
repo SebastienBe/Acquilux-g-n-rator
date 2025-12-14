@@ -1,0 +1,349 @@
+/* ========================================
+   SYSTÈME DE PANEL FIGMA
+   ======================================== */
+
+.figma-panel-container {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 0;
+  z-index: 2500;
+  pointer-events: none;
+}
+
+.figma-panel {
+  position: fixed;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  width: 320px;
+  max-height: 85vh;
+  background: #FFFFFF;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  transform: translateY(-50%) translateX(20px);
+  transition: all 0.2s ease;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  pointer-events: auto;
+}
+
+.figma-panel.active {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+.figma-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: #FAFAFA;
+  border-radius: 8px 8px 0 0;
+}
+
+.figma-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.figma-panel-icon {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.figma-panel-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #000000;
+  letter-spacing: -0.01em;
+}
+
+.figma-panel-close {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 14px;
+  padding: 0;
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.figma-panel-close:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #000000;
+}
+
+.figma-panel-close:active {
+  transform: scale(0.95);
+}
+
+.figma-panel-body {
+  padding: 8px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Sections */
+.figma-section {
+  margin-bottom: 12px;
+  padding: 8px;
+  background: #FAFAFA;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.figma-section:last-child {
+  margin-bottom: 0;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.section-icon {
+  font-size: 14px;
+  opacity: 0.6;
+}
+
+.figma-section h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #000000;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Contrôles */
+.figma-control-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.figma-control-row:last-child {
+  margin-bottom: 0;
+}
+
+.figma-control-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.figma-control-group.full-width {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.figma-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #000000;
+  min-width: 20px;
+  opacity: 0.7;
+}
+
+/* Inputs */
+.figma-input-wrapper {
+  display: flex;
+  align-items: center;
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  flex: 1;
+  transition: all 0.15s ease;
+}
+
+.figma-input-wrapper:hover {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.figma-input-wrapper:focus-within {
+  border-color: #18A0FB;
+  box-shadow: 0 0 0 1px #18A0FB;
+}
+
+.figma-number-input,
+.figma-text-input {
+  flex: 1;
+  padding: 4px 6px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: #000000;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  outline: none;
+  min-width: 0;
+}
+
+.figma-textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  background: #FFFFFF;
+  font-size: 12px;
+  font-weight: 400;
+  color: #000000;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  outline: none;
+  resize: vertical;
+  transition: all 0.15s ease;
+}
+
+.figma-textarea:hover {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.figma-textarea:focus {
+  border-color: #18A0FB;
+  box-shadow: 0 0 0 1px #18A0FB;
+}
+
+.figma-unit {
+  padding: 4px 6px;
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.04);
+  border-left: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Select */
+.figma-select {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  background: #FFFFFF;
+  font-size: 12px;
+  font-weight: 500;
+  color: #000000;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.figma-select:hover {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.figma-select:focus {
+  border-color: #18A0FB;
+  box-shadow: 0 0 0 1px #18A0FB;
+}
+
+/* Color picker */
+.figma-color-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.figma-color-input {
+  width: 40px;
+  height: 28px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+  background: none;
+}
+
+.figma-color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.figma-color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+
+/* Buttons */
+.figma-action-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  background: #FFFFFF;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.7);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.figma-action-btn:hover {
+  background: #F5F5F5;
+  border-color: rgba(0, 0, 0, 0.2);
+  color: #000000;
+}
+
+.figma-action-btn-danger {
+  background: #FF3B30;
+  color: white;
+  border-color: #FF3B30;
+}
+
+.figma-action-btn-danger:hover {
+  background: #FF2D20;
+}
+
+/* Bouton Appliquer pour les couleurs */
+.figma-action-btn[id*="apply"][id*="Color"] {
+  background: #18A0FB !important;
+  color: white !important;
+  border-color: #18A0FB !important;
+}
+
+.figma-action-btn[id*="apply"][id*="Color"]:hover {
+  background: #0E8CE8 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(24, 160, 251, 0.3);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .figma-panel {
+    width: 100%;
+    max-width: 100%;
+    right: 0;
+    left: 0;
+    top: auto;
+    bottom: 0;
+    transform: translateY(100%);
+    border-radius: 20px 20px 0 0;
+    max-height: 80vh;
+  }
+
+  .figma-panel.active {
+    transform: translateY(0);
+  }
+}
+

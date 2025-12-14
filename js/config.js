@@ -5,7 +5,6 @@ const CONFIG = {
   // 🔥 REMPLACEZ PAR VOTRE URL WEBHOOK N8N
   N8N_WEBHOOK_URL: 'https://n8n-seb.sandbox-jerem.com/webhook/fiche_produit',
   N8N_BADGE_IMAGE_URL: 'https://n8n-seb.sandbox-jerem.com/webhook/fiche_produit/badge',
-  N8N_BADGE_LIST_URL: 'https://n8n-seb.sandbox-jerem.com/webhook/fiche_produit/badge/get',
   TIMEOUT: 30000 // 30 secondes
 };
 

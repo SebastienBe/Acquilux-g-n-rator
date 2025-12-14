@@ -1,0 +1,76 @@
+/* ========================================
+   ÉDITEUR DIRECT - Styles pour la sélection et édition
+   ======================================== */
+
+/* Indicateurs visuels pour les éléments éditables */
+#pdfPreview [data-editable] {
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+#pdfPreview [data-editable]:hover {
+  background-color: rgba(230, 91, 12, 0.05);
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(230, 91, 12, 0.2);
+}
+
+#pdfPreview [data-editable].selected {
+  background-color: rgba(230, 91, 12, 0.1);
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px #E65B0C;
+  outline: none;
+}
+
+/* Badge "Éditable" au survol */
+#pdfPreview [data-editable]:hover::after {
+  content: '✏️ Éditer';
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #E65B0C;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  z-index: 1000;
+  pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "Inter", sans-serif;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+
+/* Amélioration pour les éléments spécifiques */
+#pdfPreview .header-content h1[data-editable]:hover,
+#pdfPreview .header-content .slogan[data-editable]:hover {
+  padding: 2px 4px;
+  margin: -2px -4px;
+}
+
+#pdfPreview h2[data-editable]:hover {
+  padding: 4px 8px;
+  margin: -4px -8px;
+}
+
+#pdfPreview li[data-editable]:hover {
+  padding: 4px 8px;
+  margin: 0 -8px;
+}
+
+#pdfPreview .recipe[data-editable]:hover {
+  padding: 8px;
+  margin: -8px;
+}
+
+/* Désactiver la sélection pour les badges */
+#pdfPreview .badge-instance {
+  cursor: move !important;
+}
+
+#pdfPreview .badge-instance:hover::after {
+  display: none !important;
+}
+

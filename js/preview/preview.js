@@ -88,32 +88,66 @@ function setupDrawer() {
     if (isMobile) {
       drawer.classList.remove('active');
       document.body.style.overflow = '';
+    } else {
+      // Sur desktop aussi, on peut fermer
+      drawer.classList.remove('active');
+      drawer.style.display = 'none';
     }
   }
+  
+  function openDrawerDesktop() {
+    drawer.classList.add('active');
+    drawer.style.display = 'block';
+  }
 
-  // Sur desktop, le drawer est toujours visible, pas besoin de toggle
-  if (isMobile && badgesToggleBtn) {
-    badgesToggleBtn.addEventListener('click', openDrawer);
+  // Bouton pour ouvrir/fermer le drawer (fonctionne sur mobile et desktop)
+  if (badgesToggleBtn) {
+    badgesToggleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const isCurrentlyActive = drawer.classList.contains('active');
+      
+      if (isMobile) {
+        // Sur mobile, toggle le drawer
+        if (isCurrentlyActive) {
+          closeDrawer();
+        } else {
+          openDrawer();
+        }
+      } else {
+        // Sur desktop, toggle la visibilité du drawer
+        if (isCurrentlyActive) {
+          closeDrawer();
+        } else {
+          openDrawerDesktop();
+        }
+      }
+    });
   }
 
   if (drawerClose) {
-    drawerClose.addEventListener('click', closeDrawer);
+    drawerClose.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      closeDrawer();
+    });
   }
 
   if (drawerOverlay) {
     drawerOverlay.addEventListener('click', closeDrawer);
   }
 
-  // Fermer avec Escape (mobile uniquement)
+  // Fermer avec Escape (mobile et desktop)
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && isMobile && drawer.classList.contains('active')) {
+    if (e.key === 'Escape' && drawer.classList.contains('active')) {
       closeDrawer();
     }
   });
 
-  // Sur desktop, activer le drawer par défaut
+  // Sur desktop, le drawer est fermé par défaut (l'utilisateur peut l'ouvrir avec le bouton)
   if (!isMobile) {
-    drawer.classList.add('active');
+    drawer.classList.remove('active');
+    drawer.style.display = 'none';
   }
 
   // Gérer le redimensionnement

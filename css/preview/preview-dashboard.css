@@ -144,8 +144,18 @@ body {
   justify-content: center;
   align-items: flex-start;
   padding: 16px;
+  padding-top: 160px; /* Espace en haut pour le header qui sort (ajusté pour hauteur 180px) */
+  overflow: visible !important; /* Permettre au header de sortir */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  transition: margin-left 0.3s ease;
+  position: relative; /* Pour que le header absolute soit positionné par rapport à ce conteneur */
+}
+
+/* Ajuster le margin quand la sidebar est active */
+.sections-modal.active ~ * .preview-container,
+body:has(.sections-modal.active) .preview-container {
+  margin-left: 300px;
 }
 
 /* Sur desktop : layout horizontal avec drawer */
@@ -212,7 +222,7 @@ body {
   transition: opacity var(--transition);
 }
 
-/* Sur desktop : drawer visible par défaut à gauche */
+/* Sur desktop : drawer caché par défaut, visible quand .active */
 @media (min-width: 768px) {
   .badges-drawer {
     position: relative;
@@ -223,6 +233,12 @@ body {
     pointer-events: all;
     opacity: 1;
     z-index: 1;
+    display: none; /* Caché par défaut sur desktop */
+  }
+  
+  /* Afficher le drawer quand il est actif */
+  .badges-drawer.active {
+    display: block;
   }
 }
 
@@ -1056,9 +1072,9 @@ input[type="range"]::-moz-range-thumb:hover {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   }
   
-  /* Cacher le bouton toggle sur desktop */
+  /* Le bouton toggle reste visible sur desktop pour ouvrir/fermer le drawer */
   #badgesToggleBtn {
-    display: none;
+    display: inline-flex;
   }
 }
 

@@ -1,0 +1,38 @@
+/* ========================================
+   SYSTÈME DE GRID ET GUIDES
+   ======================================== */
+
+.figma-grid-overlay {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.figma-guide {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.figma-guide-horizontal {
+  cursor: ns-resize;
+}
+
+.figma-guide-vertical {
+  cursor: ew-resize;
+}
+
+/* Styles pour les checkboxes dans les labels */
+.figma-label input[type="checkbox"] {
+  margin-right: 6px;
+  accent-color: #18A0FB;
+  cursor: pointer;
+}
+
+.figma-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+
+

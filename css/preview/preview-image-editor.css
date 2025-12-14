@@ -1,0 +1,476 @@
+/* ========================================
+   ÉDITEUR D'IMAGES
+   ======================================== */
+
+.image-editor-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 3000;
+  display: none;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+  pointer-events: none;
+}
+
+.image-editor-modal.active {
+  display: flex;
+}
+
+.image-editor-modal.active .image-editor-modal-content {
+  pointer-events: auto;
+}
+
+.image-editor-modal-content {
+  background: #FFFFFF;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 320px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.08);
+  animation: slideUp 0.2s ease;
+  position: fixed;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.image-editor-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: #FAFAFA;
+  border-radius: 8px 8px 0 0;
+}
+
+.image-editor-modal-header h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #000000;
+  letter-spacing: -0.01em;
+}
+
+.image-editor-modal-close {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #666;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.image-editor-modal-close:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #E65B0C;
+}
+
+.image-editor-modal-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Zone de prévisualisation - Supprimée pour gagner de l'espace */
+.image-editor-preview-container {
+  display: none; /* Masquée pour voir le PDF en temps réel */
+}
+
+#imageEditorPreview {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+/* Contrôles */
+.image-editor-controls {
+  width: 100%;
+  padding: 8px;
+  overflow-y: auto;
+  background: white;
+  flex: 1;
+}
+
+.image-editor-section {
+  margin-bottom: 12px;
+  padding: 8px;
+  background: #FAFAFA;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.image-editor-section:last-child {
+  margin-bottom: 0;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.section-icon {
+  font-size: 14px;
+  opacity: 0.6;
+}
+
+.image-editor-section h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #000000;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Style Figma - Contrôles */
+.figma-control-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.figma-control-row:last-child {
+  margin-bottom: 0;
+}
+
+.figma-control-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.figma-control-group.full-width {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.figma-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #000000;
+  min-width: 20px;
+  opacity: 0.7;
+}
+
+.figma-input-wrapper {
+  display: flex;
+  align-items: center;
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  flex: 1;
+  transition: all 0.15s ease;
+}
+
+.figma-input-wrapper:hover {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.figma-input-wrapper:focus-within {
+  border-color: #18A0FB;
+  box-shadow: 0 0 0 1px #18A0FB;
+}
+
+.figma-number-input {
+  flex: 1;
+  padding: 4px 6px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: #000000;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  outline: none;
+  min-width: 0;
+}
+
+.figma-unit {
+  padding: 4px 6px;
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.04);
+  border-left: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.figma-link-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  background: #FFFFFF;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.figma-link-btn:hover {
+  background: #F5F5F5;
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.figma-link-btn.active {
+  background: #18A0FB;
+  border-color: #18A0FB;
+  color: white;
+}
+
+.figma-link-btn.active .link-icon {
+  filter: brightness(0) invert(1);
+}
+
+.link-icon {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.figma-button-group {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.figma-icon-btn {
+  flex: 1;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  background: #FFFFFF;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.15s ease;
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.figma-icon-btn:hover {
+  background: #F5F5F5;
+  border-color: rgba(0, 0, 0, 0.2);
+  color: #000000;
+}
+
+.figma-icon-btn:active {
+  background: #E5E5E5;
+}
+
+/* Sliders style Figma */
+.figma-slider-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.figma-slider {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.1);
+  outline: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.figma-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  border: 1.5px solid #18A0FB;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.figma-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.figma-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  border: 1.5px solid #18A0FB;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.figma-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.figma-slider-value {
+  min-width: 40px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.7);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.image-editor-btn {
+  padding: 8px 12px;
+  background: #F0F0F0;
+  color: #2C2E2D;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Source Code Pro', monospace;
+  margin-right: 6px;
+  margin-bottom: 6px;
+}
+
+.image-editor-btn:hover {
+  background: #E0E0E0;
+  transform: translateY(-1px);
+}
+
+.image-editor-btn-primary {
+  background: #E65B0C;
+  color: white;
+}
+
+.image-editor-btn-primary:hover {
+  background: #D04A0A;
+  box-shadow: 0 4px 12px rgba(230, 91, 12, 0.3);
+}
+
+.image-editor-btn-danger {
+  background: #DC3545;
+  color: white;
+}
+
+.image-editor-btn-danger:hover {
+  background: #C82333;
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+/* Actions */
+.image-editor-actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  background: #FAFAFA;
+  border-radius: 0 0 8px 8px;
+}
+
+.image-editor-actions .image-editor-btn {
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
+  flex: 1;
+}
+
+.image-editor-actions .image-editor-btn-danger {
+  background: #FF3B30;
+  color: white;
+}
+
+.image-editor-actions .image-editor-btn-danger:hover {
+  background: #FF2D20;
+}
+
+/* Image intégrée dans le PDF - Indicateur d'édition */
+#pdfPreview .pdf-inserted-image {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+#pdfPreview .pdf-inserted-image:hover {
+  box-shadow: 0 4px 16px rgba(230, 91, 12, 0.3);
+  transform: translateY(-2px);
+}
+
+#pdfPreview .pdf-inserted-image:hover::after {
+  content: '✏️ Éditer';
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #E65B0C;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  z-index: 10;
+  pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "Inter", sans-serif;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .image-editor-modal-content {
+    max-width: 450px;
+    right: 10px;
+  }
+}
+
+@media (max-width: 768px) {
+  .image-editor-modal-content {
+    max-width: 100%;
+    max-height: 95vh;
+    right: 0;
+    left: 0;
+    top: auto;
+    bottom: 0;
+    transform: translateY(0);
+    border-radius: 20px 20px 0 0;
+  }
+
+  .image-editor-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .image-editor-actions .image-editor-btn-danger {
+    grid-column: 1;
+  }
+}
+

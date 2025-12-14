@@ -382,6 +382,11 @@
     if (window.loadSavedSettings) {
       window.loadSavedSettings();
     }
+    
+    // Réinitialiser l'éditeur direct
+    if (window.reinitDirectEditor) {
+      window.reinitDirectEditor();
+    }
   }
 
   function saveContent() {

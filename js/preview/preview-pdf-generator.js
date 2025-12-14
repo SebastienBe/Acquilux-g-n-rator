@@ -125,8 +125,11 @@ async function downloadPDF() {
 
     // Vérifier que le contenu HTML est correct dans le DOM
     const element = document.getElementById('pdfPreview');
-    const htmlContent = element.innerHTML;
+    if (!element) {
+      throw new Error('Élément pdfPreview non trouvé');
+    }
     
+    const htmlContent = element.innerHTML;
     const mobile = Utils.isMobile();
     console.log('📱 Mode mobile détecté:', mobile);
     
@@ -137,25 +140,49 @@ async function downloadPDF() {
     console.log('- Données originales disponibles:', !!window.currentPdfContent);
     console.log('- Caractéristiques dans données:', window.currentPdfContent?.caracteristiques?.length || 0);
 
-    // Si les caractéristiques ne sont pas dans le HTML, régénérer le HTML
-    if (!htmlContent.includes('Caractéristiques') || (htmlContent.match(/<li><strong>.*?<\/strong> : .*?<\/li>/g) || []).length === 0) {
-      console.warn('⚠️ Caractéristiques manquantes dans le HTML, régénération...');
+    // NE PAS régénérer le HTML sauf en cas d'urgence absolue
+    // La régénération efface tous les styles inline appliqués avec les modals Figma
+    // Vérifier seulement si le HTML est vraiment vide ou complètement cassé
+    const hasContent = htmlContent.trim().length > 0;
+    const hasCharacteristics = htmlContent.includes('Caractéristiques') || 
+                              (htmlContent.match(/<li><strong>.*?<\/strong> : .*?<\/li>/g) || []).length > 0;
+    
+    if (!hasContent) {
+      // Seulement si le HTML est complètement vide, régénérer
+      console.warn('⚠️ HTML complètement vide, régénération nécessaire...');
       const html = generateHTML(window.currentPdfContent);
       element.innerHTML = html;
-      console.log('✅ HTML régénéré');
+      console.log('✅ HTML régénéré (mais tous les styles inline sont perdus)');
+    } else if (!hasCharacteristics && window.currentPdfContent?.caracteristiques?.length > 0) {
+      // Seulement si les caractéristiques sont vraiment manquantes ET qu'elles existent dans les données
+      console.warn('⚠️ Caractéristiques manquantes dans le HTML mais présentes dans les données');
+      // Ne pas régénérer automatiquement - cela effacerait les styles
+      // À la place, juste logger un avertissement
+      console.warn('⚠️ Les caractéristiques ne seront peut-être pas dans le PDF, mais les styles sont préservés');
     }
     
-    // Dimensions A5 fixes pour garantir la cohérence
-    const a5Width = 559;   // px (148mm à 96 DPI)
-    const a5Height = 794;  // px (210mm à 96 DPI)
+    // Dimensions selon le format d'export si disponible
+    let a5Width = 559;   // px (148mm à 96 DPI) - A5 par défaut
+    let a5Height = 794;  // px (210mm à 96 DPI) - A5 par défaut
+    
+    if (window.getExportOptions && window.getDimensionsForFormat) {
+      const exportOpts = window.getExportOptions();
+      const dims = window.getDimensionsForFormat(exportOpts.format, exportOpts.customWidth, exportOpts.customHeight);
+      a5Width = dims.width;
+      a5Height = dims.height;
+    }
     
     // Sur mobile, on force les dimensions A5 pour la capture
     // Sur desktop, on utilise les dimensions réelles mais limitées à A5
     const elementWidth = mobile ? a5Width : Math.min(element.scrollWidth || a5Width, a5Width);
     const elementHeight = element.scrollHeight || a5Height;
     
-    // Scale adapté selon la plateforme (limité pour la perf mobile)
-    const scale = mobile ? 2 : 3;
+    // Scale adapté selon la qualité d'export si disponible
+    let scale = mobile ? 2 : 3;
+    if (window.getExportOptions && window.getScaleForQuality) {
+      const exportOpts = window.getExportOptions();
+      scale = window.getScaleForQuality(exportOpts.quality);
+    }
     
     console.log('📐 Dimensions:', {
       mobile,
@@ -209,36 +236,81 @@ async function downloadPDF() {
     // Attendre un peu pour que les images soient bien chargées
     await new Promise(resolve => setTimeout(resolve, 300));
     
-    // Capture avec html2canvas - Dimensions fixes A5 pour cohérence
+    // Capture avec html2canvas - Dimensions selon le format sélectionné
     const canvas = await html2canvas(element, {
       scale: scale,
       useCORS: true,
       logging: false,
       backgroundColor: '#F6E2BE', // Fond beige Otera identité
-      width: a5Width,  // Toujours 559px pour A5
+      width: a5Width,  // Largeur selon format (A5: 559px, A4: 794px, custom: selon dimensions)
       height: elementHeight, // Hauteur dynamique selon le contenu
       windowWidth: a5Width,
       windowHeight: elementHeight,
       x: 0,
       y: 0,
       onclone: async (clonedDoc) => {
-        // Forcer des dimensions A5 exactes dans le clone pour cohérence
+        // Forcer des dimensions exactes dans le clone pour cohérence
         const clonedElement = clonedDoc.getElementById('pdfPreview');
-        if (clonedElement) {
-          // Forcer exactement les dimensions A5 (559px de large)
+        const originalElement = document.getElementById('pdfPreview');
+        
+        if (clonedElement && originalElement) {
+          // Copier tous les styles inline de l'élément original vers le clone
+          // Cela préserve tous les changements faits avec les modals Figma
+          function copyInlineStyles(source, target) {
+            if (!source || !target) return;
+            
+            // Copier les styles inline de l'élément
+            if (source.style && source.style.cssText) {
+              target.style.cssText = source.style.cssText;
+            }
+            
+            // Copier récursivement pour tous les enfants
+            const sourceChildren = source.children || [];
+            const targetChildren = target.children || [];
+            
+            for (let i = 0; i < Math.min(sourceChildren.length, targetChildren.length); i++) {
+              copyInlineStyles(sourceChildren[i], targetChildren[i]);
+            }
+            
+            // Copier aussi pour les nodes (pour capturer les text nodes si nécessaire)
+            const sourceNodes = source.childNodes || [];
+            const targetNodes = target.childNodes || [];
+            
+            for (let i = 0; i < Math.min(sourceNodes.length, targetNodes.length); i++) {
+              if (sourceNodes[i].nodeType === 1 && targetNodes[i].nodeType === 1) { // Element nodes
+                copyInlineStyles(sourceNodes[i], targetNodes[i]);
+              }
+            }
+          }
+          
+          // Masquer la grille et les guides si nécessaire
+          if (window.getExportOptions) {
+            const exportOpts = window.getExportOptions();
+            if (!exportOpts.includeGrid) {
+              const gridOverlay = clonedDoc.getElementById('figmaGridOverlay');
+              if (gridOverlay) gridOverlay.style.display = 'none';
+            }
+            if (!exportOpts.includeGuides) {
+              clonedDoc.querySelectorAll('.figma-guide').forEach(guide => {
+                guide.style.display = 'none';
+              });
+            }
+          }
+          
+          // Forcer exactement les dimensions (selon le format)
           clonedElement.style.width = a5Width + 'px';
           clonedElement.style.height = 'auto';
           clonedElement.style.maxWidth = a5Width + 'px';
           clonedElement.style.minWidth = a5Width + 'px';
-          clonedElement.style.maxHeight = a5Height + 'px'; /* Limiter à la hauteur A5 */
+          clonedElement.style.maxHeight = a5Height + 'px';
           clonedElement.style.minHeight = a5Height + 'px';
           clonedElement.style.height = 'auto';
-          clonedElement.style.padding = '0'; // Pas de padding, géré par les marges internes
-          clonedElement.style.overflow = 'hidden'; // Pour les bords arrondis
-          clonedElement.style.margin = '0 auto';
+          clonedElement.style.padding = '0';
+          clonedElement.style.overflow = 'visible'; // Important : visible pour que le header orange qui sort soit capturé
+          clonedElement.style.margin = '0';
           clonedElement.style.position = 'relative';
           clonedElement.style.boxSizing = 'border-box';
-          clonedElement.style.borderRadius = '0'; // Pas d'arrondis pour le PDF
+          clonedElement.style.borderRadius = '8px'; // Garder les arrondis comme dans la preview
           clonedElement.style.background = '#F6E2BE'; // Fond beige
           
           // S'assurer que le contenu est bien aligné
@@ -260,30 +332,28 @@ async function downloadPDF() {
             clonedElement.style.color = savedSettings.textColor;
           }
           
-          // Supprimer les arrondis de la bande orange pour le PDF
+          // Copier les styles inline de tous les éléments pour préserver l'apparence exacte
+          copyInlineStyles(originalElement, clonedElement);
+          
+          // S'assurer que le header orange garde sa rotation et son positionnement
           const headerBand = clonedElement.querySelector('.header-orange-band');
-          if (headerBand) {
-            headerBand.style.borderRadius = '0';
-            headerBand.style.borderTopLeftRadius = '0';
-            headerBand.style.borderTopRightRadius = '0';
-            // Appliquer la couleur de header sauvegardée
+          const originalHeaderBand = originalElement.querySelector('.header-orange-band');
+          if (headerBand && originalHeaderBand) {
+            // Copier tous les styles inline du header orange original
+            copyInlineStyles(originalHeaderBand, headerBand);
+            
+            // Appliquer la couleur de header sauvegardée si elle existe
             if (savedSettings.headerColor) {
               headerBand.style.background = savedSettings.headerColor;
             }
           }
           
-          // S'assurer que le header-content est bien positionné
-          // Appliquer les espacements sauvegardés
-          const headerContent = clonedElement.querySelector('.header-content');
-          if (headerContent) {
-            headerContent.style.position = 'relative';
-            headerContent.style.zIndex = '10';
-            const headerPadding = savedSettings.headerPadding || '10px';
-            headerContent.style.padding = `${headerPadding} 20px`;
-            headerContent.style.minHeight = '90px';
-            headerContent.style.display = 'flex';
-            headerContent.style.flexDirection = 'column';
-            headerContent.style.justifyContent = 'center';
+          // S'assurer que le header-content garde son positionnement exact
+          const headerContent = clonedElement.querySelector('.header-orange-band .header-content');
+          const originalHeaderContent = originalElement.querySelector('.header-orange-band .header-content');
+          if (headerContent && originalHeaderContent) {
+            // Copier tous les styles inline du header-content original
+            copyInlineStyles(originalHeaderContent, headerContent);
           }
           
           // S'assurer que le badge (image) est bien positionné en bas à gauche
@@ -324,33 +394,17 @@ async function downloadPDF() {
             });
           }
           
-          // S'assurer que le h1 reste centré dans la bande orange
-          const h1 = clonedElement.querySelector('.header-content h1');
-          if (h1) {
-            h1.style.textAlign = 'center';
-            h1.style.margin = '0 0 4px 0';
-            h1.style.padding = '0';
-            h1.style.color = 'white';
-            // Appliquer la taille et le poids sauvegardés
-            if (savedSettings.h1Size) {
-              h1.style.fontSize = savedSettings.h1Size;
+          // Copier les styles inline du h1 et slogan pour préserver leur apparence exacte
+          const h1 = clonedElement.querySelector('.header-orange-band .header-content h1');
+          const originalH1 = originalElement.querySelector('.header-orange-band .header-content h1');
+          if (h1 && originalH1) {
+            copyInlineStyles(originalH1, h1);
             }
-            if (savedSettings.h1Weight) {
-              h1.style.fontWeight = savedSettings.h1Weight;
-            }
-          }
           
-          // S'assurer que le slogan reste centré dans la bande orange
-          const slogan = clonedElement.querySelector('.header-content .slogan');
-          if (slogan) {
-            slogan.style.textAlign = 'center';
-            slogan.style.margin = '0';
-            slogan.style.padding = '0';
-            slogan.style.color = 'white';
-            // Appliquer le poids sauvegardé
-            if (savedSettings.sloganWeight) {
-              slogan.style.fontWeight = savedSettings.sloganWeight;
-            }
+          const slogan = clonedElement.querySelector('.header-orange-band .header-content .slogan');
+          const originalSlogan = originalElement.querySelector('.header-orange-band .header-content .slogan');
+          if (slogan && originalSlogan) {
+            copyInlineStyles(originalSlogan, slogan);
           }
           
           // Appliquer les espacements sauvegardés pour les h2
@@ -454,6 +508,21 @@ async function downloadPDF() {
             const footerPadding = savedSettings.footerPadding || '36px';
             footer.style.padding = `${footerPadding} 20px`;
           }
+          
+          // IMPORTANT: Copier TOUS les styles inline de l'original vers le clone APRÈS toutes les autres modifications
+          // Cela préserve tous les changements faits avec les modals Figma (couleurs, tailles, paddings, etc.)
+          copyInlineStyles(originalElement, clonedElement);
+          console.log('✅ Styles inline copiés depuis l\'original vers le clone pour le PDF');
+          
+          // Réappliquer quelques styles spécifiques pour le PDF qui doivent prévaloir sur les styles inline
+          // (comme border-radius: 0 pour le PDF)
+          clonedElement.style.borderRadius = '0';
+          const headerBandAfter = clonedElement.querySelector('.header-orange-band');
+          if (headerBandAfter) {
+            headerBandAfter.style.borderRadius = '0';
+            headerBandAfter.style.borderTopLeftRadius = '0';
+            headerBandAfter.style.borderTopRightRadius = '0';
+          }
         }
       }
     });
@@ -461,15 +530,40 @@ async function downloadPDF() {
     const imgData = canvas.toDataURL('image/png', 0.95);
     const { jsPDF } = window.jspdf;
 
+    // Déterminer le format jsPDF selon les options d'export
+    let jsPdfFormat = 'a5'; // par défaut
+    let pdfWidth = 148; // A5 en mm
+    let pdfHeight = 210; // A5 en mm
+    let isCustomFormat = false;
+    
+    if (window.getExportOptions) {
+      const exportOpts = window.getExportOptions();
+      switch (exportOpts.format) {
+        case 'A5':
+          jsPdfFormat = 'a5';
+          pdfWidth = 148;
+          pdfHeight = 210;
+          break;
+        case 'A4':
+          jsPdfFormat = 'a4';
+          pdfWidth = 210;
+          pdfHeight = 297;
+          break;
+        case 'custom':
+          // Pour format personnalisé, convertir px en mm (1px = 0.264583mm à 96 DPI)
+          pdfWidth = exportOpts.customWidth * 0.264583;
+          pdfHeight = exportOpts.customHeight * 0.264583;
+          isCustomFormat = true;
+          break;
+      }
+    }
+
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: 'a5',
+      format: isCustomFormat ? [pdfWidth, pdfHeight] : jsPdfFormat,
       compress: true
     });
-
-    const pdfWidth = 148;
-    const pdfHeight = 210;
 
     const actualWidth = canvas.width / scale;
     const actualHeight = canvas.height / scale;

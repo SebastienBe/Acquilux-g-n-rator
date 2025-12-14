@@ -1,0 +1,42 @@
+/* Styles pour le drag & drop des sections dans la preview */
+
+.section-draggable {
+  position: relative;
+  cursor: grab;
+  user-select: none;
+}
+
+.section-draggable:active {
+  cursor: grabbing;
+}
+
+.section-draggable.dragging {
+  opacity: 0.5;
+  transform: scale(0.98);
+}
+
+.section-draggable.drop-target {
+  border-top: 3px solid #2196F3;
+  padding-top: calc(1em - 3px);
+}
+
+.section-drag-indicator {
+  display: inline-block;
+  font-size: 0.875rem;
+  color: #999;
+  margin-left: 8px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  vertical-align: middle;
+  cursor: grab;
+}
+
+.section-draggable:hover .section-drag-indicator {
+  opacity: 1;
+}
+
+.section-draggable:active .section-drag-indicator {
+  opacity: 0.7;
+}
+
+

@@ -21,25 +21,25 @@
   display: none;
 }
 
-/* Badge group - conteneur pour les badges multiples */
-#pdfPreview .badge-group {
+/* Badge group - conteneur pour les badges multiples - Dans le header à gauche */
+#pdfPreview .header-orange-band .badge-group {
   position: absolute;
-  bottom: 0;
-  left: 0;
+  top: 20px;
+  left: 20px;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 12px;
   margin: 0;
   padding: 0;
-  z-index: 100;
-  width: 100%;
-  height: 100%;
+  z-index: 12;
+  width: auto;
+  height: auto;
   pointer-events: none; /* Permet de cliquer à travers le conteneur */
 }
 
 #pdfPreview .badge-instance {
-  position: absolute;
-  max-width: 240px;
+  position: relative;
+  max-width: 120px;
   min-height: 40px;
   height: auto;
   object-fit: contain;
@@ -47,5 +47,13 @@
   cursor: move;
   pointer-events: auto; /* Réactive les événements sur les badges */
 }
+
+/* Badge dans le header - taille adaptée */
+#pdfPreview .header-orange-band .badge-instance {
+  max-width: 100px;
+  height: auto;
+}
+
+
 
 

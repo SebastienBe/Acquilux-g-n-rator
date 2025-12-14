@@ -41,7 +41,7 @@ function generateHTML(pdfContent) {
     const badgeParam = encodeURIComponent(name);
     const badgeUrl = `${CONFIG.N8N_BADGE_IMAGE_URL}?name=${badgeParam}&cb=${Date.now()}`;
     const cls = idx === 0 ? 'badge-instance primary-badge' : 'badge-instance extra-badge';
-    return `<img src="${badgeUrl}" alt="${Utils.escapeHtml(name)}" class="${cls}" data-badge="${Utils.escapeHtml(name)}">`;
+    return `<img src="${badgeUrl}" alt="${Utils.escapeHtml(name)}" class="${cls}" data-badge="${Utils.escapeHtml(name)}" data-editable="badge" data-editable-type="badge" style="cursor: pointer;">`;
   }).join('');
 
   console.log('🏷️ HTML badges généré:', badgeItemsHtml ? `${badgeItemsHtml.length} caractères` : 'VIDE');
@@ -106,25 +106,29 @@ function generateHTML(pdfContent) {
 
   // Retour avec footer Otera - Identité visuelle
   const finalHtml = `
-    <div class="header-orange-band"></div>
-    <div class="badge-group">
+    <div id="headerOrangeBand" class="header-orange-band">
+      <div id="badgeGroup" class="badge-group">
       ${badgeItemsHtml}
+      </div>
+      <div id="headerContent" class="header-content">
+        <h1 id="mainTitle" data-editable="title" data-editable-type="title">${Utils.escapeHtml(titre || 'Produit')}</h1>
+        <p id="mainSlogan" class="slogan" data-editable="slogan" data-editable-type="slogan">${Utils.escapeHtml(slogan || 'Un trésor de saveurs à découvrir')}</p>
+      </div>
     </div>
-    <div class="header-content">
-      <h1>${Utils.escapeHtml(titre || 'Produit')}</h1>
-      <p class="slogan">${Utils.escapeHtml(slogan || 'Un trésor de saveurs à découvrir')}</p>
+    <div id="productImageContainer" class="product-image-container" data-editable="image" data-editable-type="image">
+      <!-- L'image sera ajoutée ici via le gestionnaire d'images -->
     </div>
     
-    <h2><span class="emoji">🌿</span> Caractéristiques</h2>
-    <ul>${caracHtml}</ul>
+    <h2 id="sectionCaracteristiques" data-section="caracteristiques" data-editable="section" data-editable-type="section"><span class="emoji">🌿</span> Caractéristiques</h2>
+    <ul id="listCaracteristiques" data-section-content="caracteristiques">${caracHtml}</ul>
     
-    <h2><span class="emoji">🍴</span> 3 Façons de le Consommer</h2>
-    <ul>${consoHtml}</ul>
+    <h2 id="sectionConsommation" data-section="consommation" data-editable="section" data-editable-type="section"><span class="emoji">🍴</span> 3 Façons de le Consommer</h2>
+    <ul id="listConsommation" data-section-content="consommation">${consoHtml}</ul>
     
-    <h2><span class="emoji">👨‍🍳</span> Idées Recettes</h2>
-    ${recettesHtml}
+    <h2 id="sectionRecettes" data-section="recettes" data-editable="section" data-editable-type="section"><span class="emoji">👨‍🍳</span> Idées Recettes</h2>
+    <div id="contentRecettes" data-section-content="recettes">${recettesHtml}</div>
     
-    <div class="otera-footer">
+    <div id="oteraFooter" class="otera-footer">
     </div>
   `;
   

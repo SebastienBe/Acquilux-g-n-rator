@@ -14,7 +14,7 @@
   font-family: 'Source Code Pro', monospace; /* Typographie principale : Source Code Pro */
   color: var(--color-text);
   line-height: 1.5; /* Réduit de 1.6 à 1.5 pour économiser l'espace */
-  overflow: hidden; /* Pour que la bande orange suive les bords arrondis */
+  overflow: hidden; /* Cropper le contenu interne */
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04); /* Ombre douce moderne */
   display: flex;
   flex-direction: column;
@@ -25,6 +25,8 @@
   border-radius: 8px; /* Bords arrondis modernes */
   margin: 0 auto;
   box-sizing: border-box;
+  /* Masquer ce qui dépasse pour le format A5 */
+  clip-path: inset(0 round 8px);
 }
 
 /* Ajustements pour éviter le débordement - Style Apple */
@@ -42,21 +44,95 @@
   min-height: 0;
 }
 
+/* S'assurer que le header est collé en haut */
+#pdfPreview > .header-orange-band:first-child {
+  margin-top: 0;
+}
+
 /* Espacement et équilibre */
 #pdfPreview > *:last-child {
   margin-bottom: 0;
 }
 
-/* Bande orange en haut - Style moderne - Utilise un élément réel au lieu de ::after */
+/* Bande orange en haut - Style rectangulaire avec rotation de 3 degrés */
 #pdfPreview .header-orange-band {
   position: absolute;
+  top: -140px; /* Positionner en dehors du pdfPreview */
+  left: -100px; /* Positionner en dehors du pdfPreview à gauche */
+  width: calc(559px + 200px); /* Largeur fixe basée sur la largeur A5 + compensation rotation */
+  height: 220px; /* Hauteur pour contenir badge + texte */
+  min-height: 220px;
+  background: var(--color-badge); /* Orange #E65B0C */
+  z-index: 10; /* Au-dessus du contenu */
+  border-radius: 8px 8px 0 0; /* Arrondi seulement en haut */
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 12px 12px 12px 12px; /* Padding réduit pour format A5 */
+  box-sizing: border-box;
+  transform: rotate(3deg);
+  transform-origin: top left;
+  margin: 0;
+  overflow: visible; /* Permettre au bas de sortir du cadre */
+}
+
+/* Badge dans la bande orange - Ajusté pour padding réduit */
+#pdfPreview .header-orange-band > .badge-group {
+  position: relative;
+  z-index: 12;
   top: 0;
   left: 0;
-  right: 0;
-  height: 90px; /* Hauteur augmentée pour contenir le titre, sous-titre et padding */
-  background: var(--color-badge); /* Orange #E65B0C */
-  z-index: 1;
-  border-radius: 8px 8px 0 0; /* Bords arrondis en haut pour la preview */
+}
+
+/* Conteneur du header (titre + slogan) - Positionné à droite comme sur la photo */
+#pdfPreview .header-orange-band .header-content {
+  position: absolute;
+  top: 65px; /* Position plus basse dans le header orange */
+  right: calc(100px + 12px); /* 100px pour compenser l'extension du header + 12px de padding */
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Centrer verticalement */
+  align-items: flex-end; /* Aligner à droite */
+  text-align: right;
+  box-sizing: border-box;
+  transform: rotate(-3deg); /* Contre-rotater pour que le texte reste horizontal */
+  transform-origin: center center; /* Point de rotation au centre */
+}
+
+/* Titre principal - Dans la bande orange, en blanc - Aligné à droite - Ajusté pour format A5 */
+#pdfPreview .header-orange-band .header-content h1 {
+  font-family: 'Source Code Pro', monospace;
+  font-size: 1.2rem; /* Réduit pour format A5 (était 1.5rem) */
+  color: white; /* Blanc dans la bande orange */
+  text-align: right;
+  margin: 0 0 4px 0;
+  padding: 0;
+  font-weight: 900; /* Black - plus gras que ExtraBold */
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  white-space: nowrap; /* Empêcher le retour à la ligne */
+  box-sizing: border-box;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Ombre pour lisibilité */
+}
+
+/* Slogan - Dans la bande orange, sous le titre - Aligné à droite - Ajusté pour format A5 */
+#pdfPreview .header-orange-band .header-content .slogan {
+  font-family: 'Source Code Pro', monospace;
+  text-align: right;
+  font-size: 0.7rem; /* Réduit pour format A5 (était 0.8rem) */
+  color: white; /* Blanc dans la bande orange */
+  margin: 0;
+  padding: 0;
+  font-weight: 300; /* Light */
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  font-style: normal;
+  max-width: 60%; /* Limiter la largeur pour ne pas chevaucher le logo */
+  box-sizing: border-box;
+  opacity: 0.95;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Ombre pour lisibilité */
 }
 
 /* Ancien ::after - gardé pour compatibilité mais non utilisé */
@@ -64,48 +140,50 @@
   display: none; /* Désactivé, on utilise .header-orange-band à la place */
 }
 
-/* Conteneur du header (titre + slogan) dans la bande orange */
-#pdfPreview .header-content {
+/* Conteneur de l'image produit - Dans le contenu du PDF, sous le header content */
+#pdfPreview .product-image-container {
+  width: 100%;
   position: relative;
-  z-index: 10;
-  padding: 10px 20px 10px 20px; /* Padding par défaut */
-  min-height: 90px; /* S'assurer que le conteneur correspond à la bande orange */
+  z-index: 1;
   display: flex;
-  flex-direction: column;
-  justify-content: center; /* Centrer verticalement le contenu */
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  margin: 0 0 20px 0;
 }
 
-/* Titre principal - Dans la bande orange, en blanc - Centré */
-#pdfPreview .header-content h1 {
-  font-family: 'Source Code Pro', monospace;
-  font-size: 1.4rem;
-  color: white; /* Blanc dans la bande orange */
-  text-align: center;
-  margin: 0 0 4px 0;
-  padding: 0;
-  font-weight: 900; /* Black - plus gras que ExtraBold */
-  line-height: 1.2;
-  letter-spacing: -0.02em; /* Tracking serré moderne */
-  text-transform: none;
-  max-width: 100%;
-  box-sizing: border-box;
+/* Image produit - Dans le contenu du PDF */
+#pdfPreview .product-image-container img {
+  width: 100%;
+  height: auto;
+  max-height: 400px;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+  filter: none; /* Image en couleur */
+  border-radius: 0;
 }
 
-/* Slogan - Dans la bande orange, sous le titre - Centré */
-#pdfPreview .header-content .slogan {
+#pdfPreview .product-image-container img:hover {
+  transform: scale(1.01);
+}
+
+/* Si pas d'image, afficher un placeholder */
+#pdfPreview .product-image-container:empty::before {
+  content: '🖼️ Cliquez pour ajouter une image';
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 200px;
+  background: rgba(230, 91, 12, 0.1);
+  color: rgba(44, 46, 45, 0.5);
+  font-size: 0.875rem;
   font-family: 'Source Code Pro', monospace;
   text-align: center;
-  font-size: 0.75rem;
-  color: white; /* Blanc pour meilleur contraste sur orange */
-  margin: 0;
-  padding: 0;
-  font-weight: 300; /* Light */
-  line-height: 1.4;
-  letter-spacing: -0.01em;
-  font-style: normal; /* Pas d'italique pour meilleure lisibilité */
-  max-width: 100%;
-  box-sizing: border-box;
-  opacity: 0.95;
+  cursor: pointer;
 }
 
 /* Titres de sections - Style moderne - Espacement optimisé pour A5 */
@@ -143,9 +221,9 @@
   margin-top: 4px; /* Marge sections par défaut */
 }
 
-/* Premier h2 après le header */
-#pdfPreview .header-content + h2 {
-  margin-top: 12px; /* Centrage content par défaut */
+/* Premier h2 après l'image */
+#pdfPreview .product-image-container + h2 {
+  margin-top: 0; /* Pas besoin d'espace supplémentaire, l'image a déjà un margin-bottom */
 }
 
 /* Listes - Style moderne - Espacement optimisé pour A5 */

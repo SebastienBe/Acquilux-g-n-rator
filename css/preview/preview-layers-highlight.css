@@ -1,0 +1,22 @@
+/* Highlight temporaire pour les éléments sélectionnés dans le preview */
+.layer-highlight {
+  outline: 2px solid #2196F3 !important;
+  outline-offset: 2px !important;
+  animation: layerPulse 2s ease-out;
+}
+
+@keyframes layerPulse {
+  0% {
+    outline-color: #2196F3;
+    outline-width: 2px;
+  }
+  50% {
+    outline-color: #64B5F6;
+    outline-width: 4px;
+  }
+  100% {
+    outline-color: transparent;
+    outline-width: 0px;
+  }
+}
+

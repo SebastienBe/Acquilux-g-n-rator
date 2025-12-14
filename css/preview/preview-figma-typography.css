@@ -1,0 +1,57 @@
+/* ========================================
+   SYSTÈME DE TYPOGRAPHIE COMPLET
+   ======================================== */
+
+.figma-unit-select {
+  padding: 4px 6px;
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.04);
+  border: none;
+  border-left: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 0 4px 4px 0;
+  cursor: pointer;
+  outline: none;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.figma-unit-select:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.figma-select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  background: #FFFFFF;
+  font-size: 12px;
+  font-weight: 500;
+  color: #000000;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.figma-select:hover {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.figma-select:focus {
+  border-color: #18A0FB;
+  box-shadow: 0 0 0 1px #18A0FB;
+}
+
+.figma-icon-btn.active {
+  background: #18A0FB;
+  border-color: #18A0FB;
+  color: white;
+}
+
+.figma-icon-btn.active:hover {
+  background: #1590E8;
+}
+
+
+
