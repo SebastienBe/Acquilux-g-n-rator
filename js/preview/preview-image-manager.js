@@ -449,22 +449,22 @@
 
     // Vérifier si le bouton existe déjà
     let imageManagerBtn = document.getElementById('imageManagerToggleBtn');
-    
+
     if (!imageManagerBtn) {
       // Créer le bouton s'il n'existe pas
       imageManagerBtn = document.createElement('button');
-      imageManagerBtn.className = 'btn-icon';
-      imageManagerBtn.id = 'imageManagerToggleBtn';
-      imageManagerBtn.setAttribute('aria-label', 'Gérer les images');
-      imageManagerBtn.innerHTML = '<span class="icon">🖼️</span>';
-      imageManagerBtn.title = 'Rechercher et éditer des images';
-      
-      const badgesBtn = document.getElementById('badgesToggleBtn');
-      if (badgesBtn) {
-        headerActions.insertBefore(imageManagerBtn, badgesBtn.nextSibling);
-      } else {
-        headerActions.appendChild(imageManagerBtn);
-      }
+    imageManagerBtn.className = 'btn-icon';
+    imageManagerBtn.id = 'imageManagerToggleBtn';
+    imageManagerBtn.setAttribute('aria-label', 'Gérer les images');
+    imageManagerBtn.innerHTML = '<span class="icon">🖼️</span>';
+    imageManagerBtn.title = 'Rechercher et éditer des images';
+
+    const badgesBtn = document.getElementById('badgesToggleBtn');
+    if (badgesBtn) {
+      headerActions.insertBefore(imageManagerBtn, badgesBtn.nextSibling);
+    } else {
+      headerActions.appendChild(imageManagerBtn);
+    }
     }
     
     // Attacher l'event listener (même si le bouton existe déjà)
@@ -720,6 +720,24 @@
     const imageContainer = pdfPreview.querySelector('.product-image-container');
     
     if (imageContainer) {
+      const applyDefaultStyles = (img) => {
+        img.style.width = '100%';
+        img.style.height = '100%'; // pour permettre object-fit et object-position en Y
+        img.style.maxHeight = 'none';
+        img.style.objectFit = 'cover';
+        img.style.objectPosition = 'center';
+        img.style.display = 'block';
+        img.style.cursor = 'pointer';
+      };
+
+      const adjustContainerHeight = (img) => {
+        if (!imageContainer || !img) return;
+        const cw = imageContainer.clientWidth || img.clientWidth || 400;
+        const ratio = (img.naturalHeight && img.naturalWidth) ? (img.naturalHeight / img.naturalWidth) : 1;
+        // Hauteur visible basée sur ratio, bornée
+        const h = Math.max(200, Math.min(520, cw * ratio));
+        imageContainer.style.height = `${h}px`;
+      };
       // Placer l'image dans le contenu du PDF (position principale)
       const existingImg = imageContainer.querySelector('img');
       
@@ -728,15 +746,7 @@
       imgElement.alt = 'Image produit';
       imgElement.className = 'product-image';
       imgElement.crossOrigin = 'anonymous';
-      imgElement.style.cssText = `
-        width: 100%;
-        height: auto;
-        max-height: 400px;
-        object-fit: cover;
-        object-position: center;
-        display: block;
-        cursor: pointer;
-      `;
+      applyDefaultStyles(imgElement);
       
       // Ajouter l'attribut data-editable pour permettre l'édition
       imgElement.setAttribute('data-editable', 'image');
@@ -744,14 +754,25 @@
       
       // Si c'est une data URL (image collée), l'utiliser directement
       if (imageUrl.startsWith('data:')) {
-        imgElement.src = imageUrl;
-        if (!existingImg) {
-          imageContainer.appendChild(imgElement);
-        }
-        showMessage('Image collée avec succès', 'success');
-        if (!isPasted) {
-          closeModal();
-        }
+        const tmp = new Image();
+        tmp.onload = () => {
+          imgElement.src = imageUrl;
+          if (!existingImg) {
+            imageContainer.appendChild(imgElement);
+          }
+          adjustContainerHeight(tmp);
+          showMessage('Image collée avec succès', 'success');
+          if (!isPasted) {
+            closeModal();
+          }
+        };
+        tmp.onerror = () => {
+          imgElement.src = imageUrl;
+          if (!existingImg) imageContainer.appendChild(imgElement);
+          showMessage('Image collée (taille par défaut)', 'warning');
+          if (!isPasted) closeModal();
+        };
+        tmp.src = imageUrl;
         return;
       }
       
@@ -764,6 +785,7 @@
         if (!existingImg) {
           imageContainer.appendChild(imgElement);
         }
+        adjustContainerHeight(tempImg);
         
         showMessage('Image ajoutée dans le PDF', 'success');
         if (!isPasted) {

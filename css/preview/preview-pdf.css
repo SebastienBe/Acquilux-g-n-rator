@@ -148,6 +148,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  height: 320px; /* hauteur fixe pour permettre le recadrage vertical */
   min-height: 200px;
   margin: 0 0 20px 0;
 }
@@ -155,8 +156,8 @@
 /* Image produit - Dans le contenu du PDF */
 #pdfPreview .product-image-container img {
   width: 100%;
-  height: auto;
-  max-height: 400px;
+  height: 100%; /* nécessaire pour que object-fit/object-position agissent sur l'axe Y */
+  max-height: none;
   object-fit: cover;
   object-position: center;
   display: block;
@@ -186,7 +187,9 @@
   cursor: pointer;
 }
 
-/* Titres de sections - Style moderne - Espacement optimisé pour A5 */
+/* Titres de sections - Style moderne - Espacement optimisé pour A5
+   ⚠️ Les margins sont considérées comme "valeurs par défaut".
+   Elles peuvent être surchargées via le panneau de spacing (margin-top, etc.). */
 #pdfPreview h2 {
   font-family: 'Source Code Pro', monospace;
   font-size: 0.75rem; /* Réduit de 0.78 à 0.75 */
@@ -200,10 +203,6 @@
   text-transform: uppercase;
   width: calc(100% - 40px);
   box-sizing: border-box;
-}
-
-#pdfPreview h2:first-of-type {
-  margin-top: 12px; /* Centrage content par défaut */
 }
 
 #pdfPreview h2 .emoji {
@@ -221,9 +220,9 @@
   margin-top: 4px; /* Marge sections par défaut */
 }
 
-/* Premier h2 après l'image */
+/* Premier h2 après l'image : margin-top par défaut (surchargée si l'utilisateur modifie le spacing) */
 #pdfPreview .product-image-container + h2 {
-  margin-top: 0; /* Pas besoin d'espace supplémentaire, l'image a déjà un margin-bottom */
+  margin-top: 12px;
 }
 
 /* Listes - Style moderne - Espacement optimisé pour A5 */

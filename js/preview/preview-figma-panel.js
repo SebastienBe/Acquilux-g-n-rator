@@ -17,14 +17,6 @@
     createPanelContainer();
     setupPanelSystem();
     setupUndoRedo();
-    // Créer et afficher la sidebar des sections par défaut
-    setTimeout(() => {
-      createSectionsModal();
-      openSectionsModal();
-      restoreHiddenSections();
-      // Activer le drag & drop sur les sections dans la preview
-      setupPreviewSectionDragAndDrop();
-    }, 500);
   }
 
   // Créer le conteneur de panel
@@ -866,18 +858,6 @@
       ${window.createBadgeSelectionPanel ? window.createBadgeSelectionPanel() : ''}
       ${window.createBadgeConfigPanel ? window.createBadgeConfigPanel() : ''}
       ${window.createStylesPanel ? window.createStylesPanel() : ''}
-      
-      <div class="figma-section">
-        <div class="section-header">
-          <span class="section-icon">📋</span>
-          <h3>Sections</h3>
-        </div>
-        <div class="figma-control-row">
-          <button class="figma-action-btn" id="openSectionsModalBtn" style="width: 100%;">
-            📋 Gérer les Sections
-          </button>
-        </div>
-      </div>
       ${window.createGridPanel ? window.createGridPanel() : ''}
       ${window.createResponsivePanel ? window.createResponsivePanel() : ''}
       ${window.createExportPanel ? window.createExportPanel() : ''}
@@ -900,6 +880,89 @@
     const saturationMatch = element.style.filter ? element.style.filter.match(/saturate\((\d+)%\)/) : null;
     const objectFit = computedStyle.objectFit || 'cover';
     const objectPosition = computedStyle.objectPosition || 'center';
+    // Ancienne logique : on lisait le crop via clip-path sur l'image elle-même.
+    // Nouvelle logique : le "crop" agit sur le bloc (container) qui contient l'image.
+    // On continue à utiliser les valeurs sauvegardées dans le dataset pour le PDF,
+    // mais l'affichage en preview ne repose plus sur clip-path.
+    const clipPath = element.style.clipPath || computedStyle.clipPath || '';
+    const container = element.parentElement;
+    const containerTransform = container ? container.style.transform || window.getComputedStyle(container).transform : '';
+
+    // Extraire position X/Y depuis object-position (pour offset fin)
+    function parseObjectPosition(pos) {
+      if (!pos) return { x: 50, y: 50 };
+      const presets = {
+        'center': { x: 50, y: 50 },
+        'top': { x: 50, y: 0 },
+        'bottom': { x: 50, y: 100 },
+        'left': { x: 0, y: 50 },
+        'right': { x: 100, y: 50 },
+        'top left': { x: 0, y: 0 },
+        'top right': { x: 100, y: 0 },
+        'bottom left': { x: 0, y: 100 },
+        'bottom right': { x: 100, y: 100 }
+      };
+      if (presets[pos]) return presets[pos];
+
+      const parts = pos.split(' ');
+      let x = 50, y = 50;
+      if (parts.length === 2) {
+        x = parseFloat(parts[0]) || 50;
+        y = parseFloat(parts[1]) || 50;
+      }
+      return { x, y };
+    }
+
+    const { x: currentPosX, y: currentPosY } = parseObjectPosition(objectPosition);
+
+    // Extraire un éventuel clip-path: inset(T% R% B% L%)
+    function parseClipPathInset(cp) {
+      const defaults = { top: 0, right: 0, bottom: 0, left: 0 };
+      if (!cp || !cp.startsWith('inset(')) return defaults;
+      const inside = cp.slice(6, -1).trim(); // remove inset( and )
+      const parts = inside.split(/\s+/);
+      if (parts.length < 4) return defaults;
+      const [t, r, b, l] = parts;
+      const toNum = (v) => {
+        if (!v) return 0;
+        if (v.endsWith('%')) return parseFloat(v);
+        if (v.endsWith('px')) return parseFloat(v); // laisser tel quel en pourcentage approximatif
+        return parseFloat(v) || 0;
+      };
+      return {
+        top: toNum(t),
+        right: toNum(r),
+        bottom: toNum(b),
+        left: toNum(l)
+      };
+    }
+
+    // 🔁 Récupérer le crop depuis le dataset (source de vérité pour la génération PDF)
+    // et utiliser clip-path uniquement comme valeur de secours si rien n'est défini.
+    const clip = parseClipPathInset(clipPath);
+    const currentCropTop = element.dataset.cropTop != null
+      ? parseFloat(element.dataset.cropTop) || 0
+      : clip.top;
+    const currentCropRight = element.dataset.cropRight != null
+      ? parseFloat(element.dataset.cropRight) || 0
+      : clip.right;
+    const currentCropBottom = element.dataset.cropBottom != null
+      ? parseFloat(element.dataset.cropBottom) || 0
+      : clip.bottom;
+    const currentCropLeft = element.dataset.cropLeft != null
+      ? parseFloat(element.dataset.cropLeft) || 0
+      : clip.left;
+
+    // Lire un éventuel translateY sur le conteneur (déplacement bloc)
+    function parseTranslateY(transform) {
+      if (!transform || transform === 'none') return 0;
+      const match = transform.match(/translateY\((-?\d+(?:\.\d+)?)px\)/i);
+      if (match) return parseFloat(match[1]);
+      return 0;
+    }
+    const currentBlockOffsetY = parseTranslateY(containerTransform);
+
+    const currentZoom = 100;
 
     const currentWidth = widthMatch ? parseInt(widthMatch[1]) : 100;
     const currentHeight = heightMatch ? parseInt(heightMatch[1]) : (element.style.height === 'auto' ? 100 : 100);
@@ -908,13 +971,11 @@
     const currentContrast = contrastMatch ? parseInt(contrastMatch[1]) : 100;
     const currentSaturation = saturationMatch ? parseInt(saturationMatch[1]) : 100;
 
-    // Générer un ID unique pour cette instance
+    // Générer un ID unique pour cette instance (sera ajouté au panel lors de la création)
     const panelId = `image-panel-${Date.now()}`;
     
     // Stocker le panelId dans l'élément pour y accéder plus tard
-    if (element && element.dataset) {
-      element.dataset.imagePanelId = panelId;
-    }
+    element.dataset.imagePanelId = panelId;
 
     return `
       <!-- Fill / Fit / Crop -->
@@ -965,6 +1026,140 @@
               <option value="bottom left" ${objectPosition === 'bottom left' ? 'selected' : ''}>Bottom Left</option>
               <option value="bottom right" ${objectPosition === 'bottom right' ? 'selected' : ''}>Bottom Right</option>
             </select>
+          </div>
+        </div>
+        <div class="figma-control-row" style="margin-top: 8px; gap: 10px;">
+          <div class="figma-control-group">
+            <label class="figma-label">Offset X</label>
+            <div class="figma-slider-wrapper">
+              <input type="range"
+                     class="figma-slider"
+                     data-image-pos-x
+                     data-panel-id="${panelId}"
+                     min="-100"
+                     max="200"
+                     step="1"
+                     value="${currentPosX}">
+              <span class="figma-slider-value" data-image-pos-x-value>${currentPosX}%</span>
+            </div>
+          </div>
+          <div class="figma-control-group">
+            <label class="figma-label">Offset Y</label>
+            <div class="figma-slider-wrapper">
+              <input type="range"
+                     class="figma-slider"
+                     data-image-pos-y
+                     data-panel-id="${panelId}"
+                     min="-100"
+                     max="200"
+                     step="1"
+                     value="${currentPosY}">
+              <span class="figma-slider-value" data-image-pos-y-value>${currentPosY}%</span>
+            </div>
+          </div>
+        </div>
+        <div class="figma-control-row" style="margin-top: 8px;">
+          <div class="figma-control-group full-width">
+            <label class="figma-label">Zoom (Crop)</label>
+            <div class="figma-slider-wrapper">
+              <input type="range"
+                     class="figma-slider"
+                     data-image-zoom
+                     data-panel-id="${panelId}"
+                     min="50"
+                     max="200"
+                     step="1"
+                     value="${currentZoom}">
+              <span class="figma-slider-value" data-image-zoom-value>${currentZoom}%</span>
+            </div>
+          </div>
+        </div>
+        <div class="figma-control-row" style="margin-top: 8px;">
+          <div class="figma-control-group full-width">
+            <label class="figma-label">Position bloc (Y)</label>
+            <div class="figma-slider-wrapper">
+              <input type="range"
+                     class="figma-slider"
+                     data-image-block-offset-y
+                     data-panel-id="${panelId}"
+                     min="-200"
+                     max="200"
+                     step="1"
+                     value="${currentBlockOffsetY}">
+              <span class="figma-slider-value" data-image-block-offset-y-value>${currentBlockOffsetY}px</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Crop par côté -->
+      <div class="figma-section">
+        <div class="section-header">
+          <span class="section-icon">✂️</span>
+          <h3>Crop avancé</h3>
+        </div>
+        <div class="figma-control-row">
+          <div class="figma-control-group full-width">
+            <label class="figma-label">Haut</label>
+            <div class="figma-slider-wrapper">
+              <input type="range"
+                     class="figma-slider"
+                     data-image-crop-top
+                     data-panel-id="${panelId}"
+                     min="0"
+                     max="50"
+                     step="1"
+                     value="${currentCropTop}">
+              <span class="figma-slider-value" data-image-crop-top-value>${currentCropTop}%</span>
+            </div>
+          </div>
+        </div>
+        <div class="figma-control-row">
+          <div class="figma-control-group full-width">
+            <label class="figma-label">Bas</label>
+            <div class="figma-slider-wrapper">
+              <input type="range"
+                     class="figma-slider"
+                     data-image-crop-bottom
+                     data-panel-id="${panelId}"
+                     min="0"
+                     max="50"
+                     step="1"
+                     value="${currentCropBottom}">
+              <span class="figma-slider-value" data-image-crop-bottom-value>${currentCropBottom}%</span>
+            </div>
+          </div>
+        </div>
+        <div class="figma-control-row">
+          <div class="figma-control-group full-width">
+            <label class="figma-label">Gauche</label>
+            <div class="figma-slider-wrapper">
+              <input type="range"
+                     class="figma-slider"
+                     data-image-crop-left
+                     data-panel-id="${panelId}"
+                     min="0"
+                     max="50"
+                     step="1"
+                     value="${currentCropLeft}">
+              <span class="figma-slider-value" data-image-crop-left-value>${currentCropLeft}%</span>
+            </div>
+          </div>
+        </div>
+        <div class="figma-control-row">
+          <div class="figma-control-group full-width">
+            <label class="figma-label">Droite</label>
+            <div class="figma-slider-wrapper">
+              <input type="range"
+                     class="figma-slider"
+                     data-image-crop-right
+                     data-panel-id="${panelId}"
+                     min="0"
+                     max="50"
+                     step="1"
+                     value="${currentCropRight}">
+              <span class="figma-slider-value" data-image-crop-right-value>${currentCropRight}%</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1027,22 +1222,6 @@
             </div>
           </div>
         </div>
-        <div class="figma-control-row">
-          <div class="figma-control-group full-width">
-            <label class="figma-label">Position Y</label>
-            <div class="figma-input-wrapper">
-              <input type="number" 
-                     class="figma-number-input" 
-                     data-image-position-y 
-                     data-panel-id="${panelId}"
-                     min="-500" 
-                     max="500" 
-                     step="1" 
-                     value="0">
-              <span class="figma-unit">px</span>
-            </div>
-          </div>
-        </div>
         <div class="figma-button-group">
           <button class="figma-icon-btn" 
                   data-image-rotate-left 
@@ -1060,78 +1239,6 @@
                   data-image-flip-v 
                   data-panel-id="${panelId}"
                   title="Retourner verticalement">↕</button>
-        </div>
-      </div>
-
-      <!-- Crop -->
-      <div class="figma-section">
-        <div class="section-header">
-          <span class="section-icon">✂️</span>
-          <h3>Crop</h3>
-        </div>
-        <div class="figma-control-row">
-          <div class="figma-control-group">
-            <label class="figma-label">Top</label>
-            <div class="figma-input-wrapper">
-              <input type="number" 
-                     class="figma-number-input" 
-                     data-image-crop-top 
-                     data-panel-id="${panelId}"
-                     min="0" 
-                     step="1" 
-                     value="0">
-              <span class="figma-unit">px</span>
-            </div>
-          </div>
-          <div class="figma-control-group">
-            <label class="figma-label">Right</label>
-            <div class="figma-input-wrapper">
-              <input type="number" 
-                     class="figma-number-input" 
-                     data-image-crop-right 
-                     data-panel-id="${panelId}"
-                     min="0" 
-                     step="1" 
-                     value="0">
-              <span class="figma-unit">px</span>
-            </div>
-          </div>
-        </div>
-        <div class="figma-control-row">
-          <div class="figma-control-group">
-            <label class="figma-label">Bottom</label>
-            <div class="figma-input-wrapper">
-              <input type="number" 
-                     class="figma-number-input" 
-                     data-image-crop-bottom 
-                     data-panel-id="${panelId}"
-                     min="0" 
-                     step="1" 
-                     value="0">
-              <span class="figma-unit">px</span>
-            </div>
-          </div>
-          <div class="figma-control-group">
-            <label class="figma-label">Left</label>
-            <div class="figma-input-wrapper">
-              <input type="number" 
-                     class="figma-number-input" 
-                     data-image-crop-left 
-                     data-panel-id="${panelId}"
-                     min="0" 
-                     step="1" 
-                     value="0">
-              <span class="figma-unit">px</span>
-            </div>
-          </div>
-        </div>
-        <div class="figma-control-row">
-          <button class="figma-action-btn" 
-                  data-image-crop-reset 
-                  data-panel-id="${panelId}"
-                  style="width: 100%;">
-            ↶ Réinitialiser Crop
-          </button>
         </div>
       </div>
 
@@ -1219,38 +1326,22 @@
 
   // Attacher les événements du panel d'image
   function attachImagePanelEvents(panel, element) {
-    if (!element || element.tagName !== 'IMG') {
-      return;
-    }
+    if (!element || element.tagName !== 'IMG') return;
 
     // Récupérer le panelId depuis l'élément ou depuis le panel
-    let panelId = element.dataset.imagePanelId;
-    if (!panelId) {
-      // Chercher dans le panel
-      const panelIdElement = panel.querySelector('[data-panel-id]');
-      if (panelIdElement) {
-        panelId = panelIdElement.dataset.panelId;
-      }
-    }
-    if (!panelId) {
-      panelId = `image-panel-${Date.now()}`;
-      element.dataset.imagePanelId = panelId;
-    }
+    const panelId = element.dataset.imagePanelId || panel.querySelector('[data-panel-id]')?.dataset.panelId || `image-panel-${Date.now()}`;
 
     // Variables pour suivre l'état
     let maintainRatio = true;
     let currentRotation = 0;
     let currentScaleX = 1;
     let currentScaleY = 1;
-    
-    // Variables pour le crop
+    let currentZoom = 100;
     let cropTop = 0;
     let cropRight = 0;
     let cropBottom = 0;
     let cropLeft = 0;
-    
-    // Variable pour la position Y
-    let positionY = 0;
+    let blockOffsetY = 0;
 
     // Récupérer les valeurs initiales
     const transformMatch = element.style.transform ? element.style.transform.match(/rotate\((-?\d+)deg\)/) : null;
@@ -1265,35 +1356,23 @@
     if (scaleYMatch) {
       currentScaleY = parseFloat(scaleYMatch[1]);
     }
-    
-    // Récupérer les valeurs de filtres
-    const computedStyle = window.getComputedStyle(element);
-    let currentBrightness = 100;
-    let currentContrast = 100;
-    let currentSaturation = 100;
-    
-    const filter = element.style.filter || computedStyle.filter || '';
-    const brightnessMatch = filter.match(/brightness\((\d+)%\)/);
-    if (brightnessMatch) {
-      currentBrightness = parseInt(brightnessMatch[1]);
-    }
-    const contrastMatch = filter.match(/contrast\((\d+)%\)/);
-    if (contrastMatch) {
-      currentContrast = parseInt(contrastMatch[1]);
-    }
-    const saturationMatch = filter.match(/saturate\((\d+)%\)/);
-    if (saturationMatch) {
-      currentSaturation = parseInt(saturationMatch[1]);
-    }
 
     // Fonction pour appliquer les transformations
     function applyImageTransform() {
-      const widthInput = panel.querySelector(`[data-image-width]`);
-      const heightInput = panel.querySelector(`[data-image-height]`);
-      const rotationInput = panel.querySelector(`[data-image-rotation]`);
-      const brightnessInput = panel.querySelector(`[data-image-brightness]`);
-      const contrastInput = panel.querySelector(`[data-image-contrast]`);
-      const saturationInput = panel.querySelector(`[data-image-saturation]`);
+      const widthInput = panel.querySelector(`[data-image-width][data-panel-id="${panelId}"]`);
+      const heightInput = panel.querySelector(`[data-image-height][data-panel-id="${panelId}"]`);
+      const rotationInput = panel.querySelector(`[data-image-rotation][data-panel-id="${panelId}"]`);
+      const brightnessInput = panel.querySelector(`[data-image-brightness][data-panel-id="${panelId}"]`);
+      const contrastInput = panel.querySelector(`[data-image-contrast][data-panel-id="${panelId}"]`);
+      const saturationInput = panel.querySelector(`[data-image-saturation][data-panel-id="${panelId}"]`);
+      const zoomInput = panel.querySelector(`[data-image-zoom][data-panel-id="${panelId}"]`);
+      const posXInput = panel.querySelector(`[data-image-pos-x][data-panel-id="${panelId}"]`);
+      const posYInput = panel.querySelector(`[data-image-pos-y][data-panel-id="${panelId}"]`);
+      const cropTopInput = panel.querySelector(`[data-image-crop-top][data-panel-id="${panelId}"]`);
+      const blockOffsetInput = panel.querySelector(`[data-image-block-offset-y][data-panel-id="${panelId}"]`);
+      const cropRightInput = panel.querySelector(`[data-image-crop-right][data-panel-id="${panelId}"]`);
+      const cropBottomInput = panel.querySelector(`[data-image-crop-bottom][data-panel-id="${panelId}"]`);
+      const cropLeftInput = panel.querySelector(`[data-image-crop-left][data-panel-id="${panelId}"]`);
 
       const width = widthInput ? parseInt(widthInput.value) || 100 : 100;
       const height = heightInput ? parseInt(heightInput.value) || 100 : 100;
@@ -1301,67 +1380,113 @@
       const brightness = brightnessInput ? parseInt(brightnessInput.value) || 100 : 100;
       const contrast = contrastInput ? parseInt(contrastInput.value) || 100 : 100;
       const saturation = saturationInput ? parseInt(saturationInput.value) || 100 : 100;
+      const zoom = zoomInput ? parseInt(zoomInput.value) || 100 : 100;
+      const posX = posXInput ? parseInt(posXInput.value) || 50 : 50;
+      const posY = posYInput ? parseInt(posYInput.value) || 50 : 50;
+      currentZoom = zoom;
+
+      cropTop = cropTopInput ? parseInt(cropTopInput.value) || 0 : 0;
+      cropRight = cropRightInput ? parseInt(cropRightInput.value) || 0 : 0;
+      cropBottom = cropBottomInput ? parseInt(cropBottomInput.value) || 0 : 0;
+      cropLeft = cropLeftInput ? parseInt(cropLeftInput.value) || 0 : 0;
+      blockOffsetY = blockOffsetInput ? parseInt(blockOffsetInput.value) || 0 : 0;
+
+      // Sauvegarder les paramètres principaux sur l'élément (dataset)
+      // pour que le générateur PDF puisse reconstruire un crop approximatif.
+      try {
+        element.dataset.cropTop = String(cropTop);
+        element.dataset.cropRight = String(cropRight);
+        element.dataset.cropBottom = String(cropBottom);
+        element.dataset.cropLeft = String(cropLeft);
+        element.dataset.zoom = String(zoom);
+        element.dataset.widthPercent = String(width);
+        element.dataset.heightPercent = String(height);
+      } catch (e) {
+        console.warn('⚠️ Impossible de sauvegarder les données de crop sur l\'image:', e);
+      }
 
       element.style.width = `${width}%`;
-      element.style.height = height === 100 ? 'auto' : `${height}%`;
-      
-      // Appliquer la rotation, le scale et la position Y dans le transform
-      const transforms = [];
-      if (positionY !== 0) {
-        transforms.push(`translateY(${positionY}px)`);
-      }
-      if (rotation !== 0) {
-        transforms.push(`rotate(${rotation}deg)`);
-      }
-      if (currentScaleX !== 1 || currentScaleY !== 1) {
-        transforms.push(`scaleX(${currentScaleX}) scaleY(${currentScaleY})`);
-      }
-      element.style.transform = transforms.length > 0 ? transforms.join(' ') : 'none';
-      
+      // On garde une hauteur en % pour que object-fit / object-position fonctionnent en Y
+      element.style.height = `${height}%`;
+      const zoomFactor = zoom / 100;
+      element.style.transform = `rotate(${rotation}deg) scaleX(${currentScaleX * zoomFactor}) scaleY(${currentScaleY * zoomFactor})`;
       element.style.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
-      
-      // Appliquer le crop avec clip-path
-      if (cropTop > 0 || cropRight > 0 || cropBottom > 0 || cropLeft > 0) {
-        // Utiliser clip-path avec inset en pixels pour rogner l'image
-        element.style.clipPath = `inset(${cropTop}px ${cropRight}px ${cropBottom}px ${cropLeft}px)`;
-      } else {
-        element.style.clipPath = '';
+      element.style.objectPosition = `${posX}% ${posY}%`;
+      // ❌ Plus de clip-path : le recadrage visuel se fait uniquement par la taille du bloc
+      //    (height du conteneur) + position/zoom, pour éviter les problèmes à la génération.
+      element.style.clipPath = 'none';
+      if (element.parentElement) {
+        const container = element.parentElement;
+        // On déplace le bloc dans le flux avec margin-top (et pas transform)
+        // pour que le contenu texte en dessous suive toujours et garde la marge.
+        container.style.marginTop = `${blockOffsetY}px`;
+        // Nettoyer tout ancien transform éventuel appliqué sur le conteneur
+        container.style.transform = '';
+        // Ajuster la hauteur du conteneur au crop/zoom pour éviter l'espace vide
+        const containerWidth = container.clientWidth || element.clientWidth || 1;
+        const ratio = element.naturalHeight && element.naturalWidth
+          ? element.naturalHeight / element.naturalWidth
+          : 1;
+        let visibleHeight = containerWidth * ratio;
+        // Prendre en compte le scaling hauteur (%), zoom et crop vertical
+        visibleHeight *= (height / 100);
+        visibleHeight *= (zoom / 100);
+        const visibleFactor = Math.max(0, 1 - ((cropTop + cropBottom) / 100));
+        visibleHeight *= visibleFactor;
+        // Garder une hauteur minimale pour garder l'interaction
+        visibleHeight = Math.max(120, visibleHeight);
+        container.style.height = `${visibleHeight}px`;
       }
     }
 
     // Fill / Fit / Crop buttons
-    const fitButtons = panel.querySelectorAll(`[data-image-fit]`);
-    fitButtons.forEach(btn => {
-      // Vérifier si le panelId correspond ou si c'est le seul bouton
-      const btnPanelId = btn.dataset.panelId;
-      if (!btnPanelId || btnPanelId === panelId) {
-        btn.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const fit = e.currentTarget.dataset.imageFit;
-          element.style.objectFit = fit;
-          // Mettre à jour l'état actif
-          fitButtons.forEach(b => b.classList.remove('active'));
-          e.currentTarget.classList.add('active');
-        });
-      }
+    panel.querySelectorAll(`[data-image-fit][data-panel-id="${panelId}"]`).forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const fit = e.currentTarget.dataset.imageFit;
+        element.style.objectFit = fit;
+        // Mettre à jour l'état actif
+        panel.querySelectorAll(`[data-image-fit][data-panel-id="${panelId}"]`).forEach(b => b.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+      });
     });
 
     // Position select
-    const positionSelect = panel.querySelector(`[data-image-position]`);
+    const positionSelect = panel.querySelector(`[data-image-position][data-panel-id="${panelId}"]`);
     if (positionSelect) {
-      const selectPanelId = positionSelect.dataset.panelId;
-      if (!selectPanelId || selectPanelId === panelId) {
-        positionSelect.addEventListener('change', (e) => {
-          element.style.objectPosition = e.target.value;
-        });
-      }
+      positionSelect.addEventListener('change', (e) => {
+        element.style.objectPosition = e.target.value;
+        const { x, y } = (function(pos) {
+          const map = {
+            'center': { x: 50, y: 50 },
+            'top': { x: 50, y: 0 },
+            'bottom': { x: 50, y: 100 },
+            'left': { x: 0, y: 50 },
+            'right': { x: 100, y: 50 },
+            'top left': { x: 0, y: 0 },
+            'top right': { x: 100, y: 0 },
+            'bottom left': { x: 0, y: 100 },
+            'bottom right': { x: 100, y: 100 }
+          };
+          if (map[pos]) return map[pos];
+          return { x: 50, y: 50 };
+        })(e.target.value);
+        const posXInput = panel.querySelector(`[data-image-pos-x][data-panel-id="${panelId}"]`);
+        const posYInput = panel.querySelector(`[data-image-pos-y][data-panel-id="${panelId}"]`);
+        const posXValue = panel.querySelector(`[data-image-pos-x-value]`);
+        const posYValue = panel.querySelector(`[data-image-pos-y-value]`);
+        if (posXInput) posXInput.value = x;
+        if (posYInput) posYInput.value = y;
+        if (posXValue) posXValue.textContent = `${x}%`;
+        if (posYValue) posYValue.textContent = `${y}%`;
+      });
     }
 
     // Width / Height inputs
-    const widthInput = panel.querySelector(`[data-image-width]`);
-    const heightInput = panel.querySelector(`[data-image-height]`);
-    const maintainRatioBtn = panel.querySelector(`[data-image-maintain-ratio]`);
+    const widthInput = panel.querySelector(`[data-image-width][data-panel-id="${panelId}"]`);
+    const heightInput = panel.querySelector(`[data-image-height][data-panel-id="${panelId}"]`);
+    const maintainRatioBtn = panel.querySelector(`[data-image-maintain-ratio][data-panel-id="${panelId}"]`);
 
     if (widthInput) {
       widthInput.addEventListener('input', () => {
@@ -1402,7 +1527,7 @@
     }
 
     // Rotation
-    const rotationInput = panel.querySelector(`[data-image-rotation]`);
+    const rotationInput = panel.querySelector(`[data-image-rotation][data-panel-id="${panelId}"]`);
     if (rotationInput) {
       rotationInput.addEventListener('input', () => {
         currentRotation = parseInt(rotationInput.value) || 0;
@@ -1410,25 +1535,9 @@
       });
     }
 
-    // Position Y input
-    const positionYInput = panel.querySelector(`[data-image-position-y]`);
-    if (positionYInput) {
-      // Récupérer la valeur initiale depuis le transform
-      const transformMatch = element.style.transform ? element.style.transform.match(/translateY\((-?\d+(?:\.\d+)?)px\)/) : null;
-      if (transformMatch) {
-        positionY = parseFloat(transformMatch[1]);
-        positionYInput.value = Math.round(positionY);
-      }
-      
-      positionYInput.addEventListener('input', () => {
-        positionY = parseInt(positionYInput.value) || 0;
-        applyImageTransform();
-      });
-    }
-
     // Rotate buttons
-    const rotateLeftBtn = panel.querySelector(`[data-image-rotate-left]`);
-    const rotateRightBtn = panel.querySelector(`[data-image-rotate-right]`);
+    const rotateLeftBtn = panel.querySelector(`[data-image-rotate-left][data-panel-id="${panelId}"]`);
+    const rotateRightBtn = panel.querySelector(`[data-image-rotate-right][data-panel-id="${panelId}"]`);
     
     if (rotateLeftBtn) {
       rotateLeftBtn.addEventListener('click', () => {
@@ -1449,8 +1558,8 @@
     }
 
     // Flip buttons
-    const flipHBtn = panel.querySelector(`[data-image-flip-h]`);
-    const flipVBtn = panel.querySelector(`[data-image-flip-v]`);
+    const flipHBtn = panel.querySelector(`[data-image-flip-h][data-panel-id="${panelId}"]`);
+    const flipVBtn = panel.querySelector(`[data-image-flip-v][data-panel-id="${panelId}"]`);
 
     if (flipHBtn) {
       flipHBtn.addEventListener('click', () => {
@@ -1466,76 +1575,10 @@
       });
     }
 
-    // Crop inputs
-    const cropTopInput = panel.querySelector(`[data-image-crop-top]`);
-    const cropRightInput = panel.querySelector(`[data-image-crop-right]`);
-    const cropBottomInput = panel.querySelector(`[data-image-crop-bottom]`);
-    const cropLeftInput = panel.querySelector(`[data-image-crop-left]`);
-    const cropResetBtn = panel.querySelector(`[data-image-crop-reset]`);
-
-    // Récupérer les valeurs initiales de crop depuis l'élément
-    const clipPath = element.style.clipPath || window.getComputedStyle(element).clipPath;
-    if (clipPath && clipPath.includes('inset')) {
-      const insetMatch = clipPath.match(/inset\(([^)]+)\)/);
-      if (insetMatch) {
-        const values = insetMatch[1].split(/\s+/).map(v => parseFloat(v));
-        if (values.length === 4) {
-          // Les valeurs sont en pourcentage, on doit les convertir en pixels
-          // Pour l'instant, on initialise à 0 et l'utilisateur peut ajuster
-          cropTop = 0;
-          cropRight = 0;
-          cropBottom = 0;
-          cropLeft = 0;
-        }
-      }
-    }
-
-    if (cropTopInput) {
-      cropTopInput.addEventListener('input', () => {
-        cropTop = parseInt(cropTopInput.value) || 0;
-        applyImageTransform();
-      });
-    }
-
-    if (cropRightInput) {
-      cropRightInput.addEventListener('input', () => {
-        cropRight = parseInt(cropRightInput.value) || 0;
-        applyImageTransform();
-      });
-    }
-
-    if (cropBottomInput) {
-      cropBottomInput.addEventListener('input', () => {
-        cropBottom = parseInt(cropBottomInput.value) || 0;
-        applyImageTransform();
-      });
-    }
-
-    if (cropLeftInput) {
-      cropLeftInput.addEventListener('input', () => {
-        cropLeft = parseInt(cropLeftInput.value) || 0;
-        applyImageTransform();
-      });
-    }
-
-    if (cropResetBtn) {
-      cropResetBtn.addEventListener('click', () => {
-        cropTop = 0;
-        cropRight = 0;
-        cropBottom = 0;
-        cropLeft = 0;
-        if (cropTopInput) cropTopInput.value = 0;
-        if (cropRightInput) cropRightInput.value = 0;
-        if (cropBottomInput) cropBottomInput.value = 0;
-        if (cropLeftInput) cropLeftInput.value = 0;
-        applyImageTransform();
-      });
-    }
-
     // Effects sliders
-    const brightnessInput = panel.querySelector(`[data-image-brightness]`);
-    const contrastInput = panel.querySelector(`[data-image-contrast]`);
-    const saturationInput = panel.querySelector(`[data-image-saturation]`);
+    const brightnessInput = panel.querySelector(`[data-image-brightness][data-panel-id="${panelId}"]`);
+    const contrastInput = panel.querySelector(`[data-image-contrast][data-panel-id="${panelId}"]`);
+    const saturationInput = panel.querySelector(`[data-image-saturation][data-panel-id="${panelId}"]`);
 
     if (brightnessInput) {
       const brightnessValue = panel.querySelector(`[data-image-brightness-value]`);
@@ -1564,11 +1607,98 @@
       });
     }
 
+    // Zoom (crop)
+    const zoomInput = panel.querySelector(`[data-image-zoom][data-panel-id="${panelId}"]`);
+    if (zoomInput) {
+      const zoomValue = panel.querySelector(`[data-image-zoom-value]`);
+      zoomInput.addEventListener('input', () => {
+        const value = parseInt(zoomInput.value) || 100;
+        currentZoom = value;
+        if (zoomValue) zoomValue.textContent = `${value}%`;
+        applyImageTransform();
+      });
+    }
+
+    // Position fine X/Y
+    const posXInput = panel.querySelector(`[data-image-pos-x][data-panel-id="${panelId}"]`);
+    const posYInput = panel.querySelector(`[data-image-pos-y][data-panel-id="${panelId}"]`);
+    const posXValue = panel.querySelector(`[data-image-pos-x-value]`);
+    const posYValue = panel.querySelector(`[data-image-pos-y-value]`);
+
+    if (posXInput) {
+      posXInput.addEventListener('input', () => {
+        const value = parseInt(posXInput.value) || 50;
+        if (posXValue) posXValue.textContent = `${value}%`;
+        applyImageTransform();
+      });
+    }
+
+    if (posYInput) {
+      posYInput.addEventListener('input', () => {
+        const value = parseInt(posYInput.value) || 50;
+        if (posYValue) posYValue.textContent = `${value}%`;
+        applyImageTransform();
+      });
+    }
+
+    // Crop sliders
+    const cropTopInput = panel.querySelector(`[data-image-crop-top][data-panel-id="${panelId}"]`);
+    const cropRightInput = panel.querySelector(`[data-image-crop-right][data-panel-id="${panelId}"]`);
+    const cropBottomInput = panel.querySelector(`[data-image-crop-bottom][data-panel-id="${panelId}"]`);
+    const cropLeftInput = panel.querySelector(`[data-image-crop-left][data-panel-id="${panelId}"]`);
+    const cropTopValue = panel.querySelector(`[data-image-crop-top-value]`);
+    const cropRightValue = panel.querySelector(`[data-image-crop-right-value]`);
+    const cropBottomValue = panel.querySelector(`[data-image-crop-bottom-value]`);
+    const cropLeftValue = panel.querySelector(`[data-image-crop-left-value]`);
+
+    if (cropTopInput) {
+      cropTopInput.addEventListener('input', () => {
+        const value = parseInt(cropTopInput.value) || 0;
+        if (cropTopValue) cropTopValue.textContent = `${value}%`;
+        applyImageTransform();
+      });
+    }
+
+    if (cropBottomInput) {
+      cropBottomInput.addEventListener('input', () => {
+        const value = parseInt(cropBottomInput.value) || 0;
+        if (cropBottomValue) cropBottomValue.textContent = `${value}%`;
+        applyImageTransform();
+      });
+    }
+
+    if (cropLeftInput) {
+      cropLeftInput.addEventListener('input', () => {
+        const value = parseInt(cropLeftInput.value) || 0;
+        if (cropLeftValue) cropLeftValue.textContent = `${value}%`;
+        applyImageTransform();
+      });
+    }
+
+    // Déplacement du bloc (translateY sur le conteneur)
+    const blockOffsetInput = panel.querySelector(`[data-image-block-offset-y][data-panel-id="${panelId}"]`);
+    const blockOffsetValue = panel.querySelector(`[data-image-block-offset-y-value]`);
+    if (blockOffsetInput) {
+      blockOffsetInput.addEventListener('input', () => {
+        const value = parseInt(blockOffsetInput.value) || 0;
+        blockOffsetY = value;
+        if (blockOffsetValue) blockOffsetValue.textContent = `${value}px`;
+        applyImageTransform();
+      });
+    }
+
+    if (cropRightInput) {
+      cropRightInput.addEventListener('input', () => {
+        const value = parseInt(cropRightInput.value) || 0;
+        if (cropRightValue) cropRightValue.textContent = `${value}%`;
+        applyImageTransform();
+      });
+    }
+
     // Reset button
-    const resetBtn = panel.querySelector(`[data-image-reset]`);
+    const resetBtn = panel.querySelector(`[data-image-reset][data-panel-id="${panelId}"]`);
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
-        console.log('🔄 Reset cliqué');
         if (widthInput) widthInput.value = 100;
         if (heightInput) heightInput.value = 100;
         if (rotationInput) {
@@ -1590,23 +1720,71 @@
           const saturationValue = panel.querySelector(`[data-image-saturation-value]`);
           if (saturationValue) saturationValue.textContent = '100%';
         }
+        const zoomInput = panel.querySelector(`[data-image-zoom][data-panel-id="${panelId}"]`);
+        const zoomValue = panel.querySelector(`[data-image-zoom-value]`);
+        if (zoomInput) {
+          zoomInput.value = 100;
+          currentZoom = 100;
+          if (zoomValue) zoomValue.textContent = '100%';
+        }
+        const posXInput = panel.querySelector(`[data-image-pos-x][data-panel-id="${panelId}"]`);
+        const posYInput = panel.querySelector(`[data-image-pos-y][data-panel-id="${panelId}"]`);
+        const posXValue = panel.querySelector(`[data-image-pos-x-value]`);
+        const posYValue = panel.querySelector(`[data-image-pos-y-value]`);
+        if (posXInput) posXInput.value = 50;
+        if (posYInput) posYInput.value = 50;
+        if (posXValue) posXValue.textContent = '50%';
+        if (posYValue) posYValue.textContent = '50%';
+        // Réinitialiser le crop
+        const cropTopInput = panel.querySelector(`[data-image-crop-top][data-panel-id="${panelId}"]`);
+        const cropRightInput = panel.querySelector(`[data-image-crop-right][data-panel-id="${panelId}"]`);
+        const cropBottomInput = panel.querySelector(`[data-image-crop-bottom][data-panel-id="${panelId}"]`);
+        const cropLeftInput = panel.querySelector(`[data-image-crop-left][data-panel-id="${panelId}"]`);
+        const cropTopValue = panel.querySelector(`[data-image-crop-top-value]`);
+        const cropRightValue = panel.querySelector(`[data-image-crop-right-value]`);
+        const cropBottomValue = panel.querySelector(`[data-image-crop-bottom-value]`);
+        const cropLeftValue = panel.querySelector(`[data-image-crop-left-value]`);
+        if (cropTopInput) cropTopInput.value = 0;
+        if (cropRightInput) cropRightInput.value = 0;
+        if (cropBottomInput) cropBottomInput.value = 0;
+        if (cropLeftInput) cropLeftInput.value = 0;
+        if (cropTopValue) cropTopValue.textContent = '0%';
+        if (cropRightValue) cropRightValue.textContent = '0%';
+        if (cropBottomValue) cropBottomValue.textContent = '0%';
+        if (cropLeftValue) cropLeftValue.textContent = '0%';
         currentScaleX = 1;
         currentScaleY = 1;
         element.style.objectFit = 'cover';
         element.style.objectPosition = 'center';
+        element.style.clipPath = 'none';
+        blockOffsetY = 0;
+        const blockOffsetInput = panel.querySelector(`[data-image-block-offset-y][data-panel-id="${panelId}"]`);
+        const blockOffsetValue = panel.querySelector(`[data-image-block-offset-y-value]`);
+        if (blockOffsetInput) blockOffsetInput.value = 0;
+        if (blockOffsetValue) blockOffsetValue.textContent = '0px';
+        if (element.parentElement) {
+          const container = element.parentElement;
+          // Remettre le bloc dans sa position d'origine dans le flux
+          container.style.marginTop = '0px';
+          container.style.transform = '';
+          // Revenir à une hauteur cohérente basée sur le ratio naturel
+          const containerWidth = container.clientWidth || element.clientWidth || 1;
+          const ratio = element.naturalHeight && element.naturalWidth
+            ? element.naturalHeight / element.naturalWidth
+            : 1;
+          const baseHeight = Math.max(200, containerWidth * ratio); // base minimale
+          container.style.height = `${baseHeight}px`;
+        }
         panel.querySelectorAll(`[data-image-fit][data-panel-id="${panelId}"]`).forEach(b => {
           b.classList.toggle('active', b.dataset.imageFit === 'cover');
         });
         if (positionSelect) positionSelect.value = 'center';
-        // Réinitialiser la position Y
-        positionY = 0;
-        if (positionYInput) positionYInput.value = 0;
         applyImageTransform();
       });
     }
 
     // Delete button
-    const deleteBtn = panel.querySelector(`[data-image-delete]`);
+    const deleteBtn = panel.querySelector(`[data-image-delete][data-panel-id="${panelId}"]`);
     if (deleteBtn) {
       deleteBtn.addEventListener('click', () => {
         if (confirm('Êtes-vous sûr de vouloir supprimer cette image ?')) {
@@ -1615,48 +1793,6 @@
         }
       });
     }
-    
-    // Appliquer les valeurs initiales
-    if (widthInput) {
-      const currentWidth = element.style.width ? parseInt(element.style.width) : 100;
-      widthInput.value = currentWidth;
-    }
-    if (heightInput) {
-      const currentHeight = element.style.height === 'auto' ? 100 : (element.style.height ? parseInt(element.style.height) : 100);
-      heightInput.value = currentHeight;
-    }
-    if (rotationInput) {
-      rotationInput.value = currentRotation;
-    }
-    if (positionYInput) {
-      // Récupérer la valeur initiale depuis le transform si elle existe
-      const transformMatch = element.style.transform ? element.style.transform.match(/translateY\((-?\d+(?:\.\d+)?)px\)/) : null;
-      if (transformMatch) {
-        positionY = parseFloat(transformMatch[1]);
-        positionYInput.value = Math.round(positionY);
-      } else {
-        positionYInput.value = 0;
-      }
-    }
-    if (brightnessInput) {
-      brightnessInput.value = currentBrightness;
-      const brightnessValue = panel.querySelector(`[data-image-brightness-value]`);
-      if (brightnessValue) brightnessValue.textContent = `${currentBrightness}%`;
-    }
-    if (contrastInput) {
-      contrastInput.value = currentContrast;
-      const contrastValue = panel.querySelector(`[data-image-contrast-value]`);
-      if (contrastValue) contrastValue.textContent = `${currentContrast}%`;
-    }
-    if (saturationInput) {
-      saturationInput.value = currentSaturation;
-      const saturationValue = panel.querySelector(`[data-image-saturation-value]`);
-      if (saturationValue) saturationValue.textContent = `${currentSaturation}%`;
-    }
-    
-    // Appliquer les transformations initiales
-    applyImageTransform();
-    
   }
 
   // Créer le panel par défaut
@@ -1763,14 +1899,14 @@
           <div class="figma-control-group">
             <label class="figma-label">M Top</label>
             <div class="figma-input-wrapper">
-              <input type="number" id="panelMarginTop" class="figma-number-input" value="${Math.round(marginTop)}" min="0" max="100" step="1">
+              <input type="number" id="panelMarginTop" class="figma-number-input" value="${Math.round(marginTop)}" step="1">
               <span class="figma-unit">px</span>
             </div>
           </div>
           <div class="figma-control-group">
             <label class="figma-label">M Bottom</label>
             <div class="figma-input-wrapper">
-              <input type="number" id="panelMarginBottom" class="figma-number-input" value="${Math.round(marginBottom)}" min="0" max="100" step="1">
+              <input type="number" id="panelMarginBottom" class="figma-number-input" value="${Math.round(marginBottom)}" step="1">
               <span class="figma-unit">px</span>
             </div>
           </div>
@@ -1779,7 +1915,7 @@
           <div class="figma-control-group full-width">
             <label class="figma-label">Padding</label>
             <div class="figma-input-wrapper">
-              <input type="number" id="panelPadding" class="figma-number-input" value="${Math.round(padding)}" min="0" max="50" step="1">
+              <input type="number" id="panelPadding" class="figma-number-input" value="${Math.round(padding)}" min="0" step="1">
               <span class="figma-unit">px</span>
             </div>
           </div>
@@ -1860,16 +1996,6 @@
       });
     }
     
-    // Bouton pour ouvrir la modal des sections
-    const openSectionsModalBtn = panel.querySelector('#openSectionsModalBtn');
-    if (openSectionsModalBtn) {
-      openSectionsModalBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        openSectionsModal();
-      });
-    }
-
     // Mise à jour en temps réel pour tous les champs
     const inputs = panel.querySelectorAll('input, textarea, select');
     console.log('Nombre d\'inputs trouvés:', inputs.length);
@@ -2905,6 +3031,10 @@
   }
   
   function openSectionsModal() {
+    // Modal Layers désactivée (suppression demandée)
+    console.log('ℹ️ Modal Layers désactivée');
+    return;
+
     const modal = createSectionsModal();
     const pdfPreview = document.getElementById('pdfPreview');
     if (!pdfPreview) return;

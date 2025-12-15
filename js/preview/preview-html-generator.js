@@ -16,7 +16,7 @@ function generateHTML(pdfContent) {
     throw new Error('Données invalides pour la génération HTML');
   }
   
-  const { titre, slogan, caracteristiques, consommation, recettes } = pdfContent;
+  const { titre, sousTitre, slogan, caracteristiques, consommation, recettes } = pdfContent;
 
   // Déterminer les badges sélectionnés (multi)
   // Priorité : badges stockés dans sessionStorage (sélection explicite de l'utilisateur)
@@ -112,7 +112,8 @@ function generateHTML(pdfContent) {
       </div>
       <div id="headerContent" class="header-content">
         <h1 id="mainTitle" data-editable="title" data-editable-type="title">${Utils.escapeHtml(titre || 'Produit')}</h1>
-        <p id="mainSlogan" class="slogan" data-editable="slogan" data-editable-type="slogan">${Utils.escapeHtml(slogan || 'Un trésor de saveurs à découvrir')}</p>
+        ${sousTitre ? `<p id="mainSubtitle" class="subtitle" data-editable="subtitle" data-editable-type="subtitle">${Utils.escapeHtml(sousTitre)}</p>` : ''}
+        ${slogan ? `<p id="mainSlogan" class="slogan" data-editable="slogan" data-editable-type="slogan">${Utils.escapeHtml(slogan)}</p>` : ''}
       </div>
     </div>
     <div id="productImageContainer" class="product-image-container" data-editable="image" data-editable-type="image">

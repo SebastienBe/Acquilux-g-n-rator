@@ -107,7 +107,8 @@ async function generateAndRedirect(productName) {
     // Vérification finale avant stockage
     if (!data.pdfContent) {
       console.error('❌ pdfContent manquant dans les données:', data);
-      throw new Error('Format de réponse invalide : pdfContent manquant');
+      console.error('📋 Structure complète reçue:', JSON.stringify(data, null, 2));
+      throw new Error(`Format de réponse invalide : pdfContent manquant. N8N doit retourner un tableau avec pdfContent. Structure reçue: ${JSON.stringify(data).substring(0, 200)}`);
     }
 
     // NORMALISATION ET VALIDATION DES CARACTÉRISTIQUES

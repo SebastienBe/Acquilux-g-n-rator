@@ -1,0 +1,37 @@
+[
+  {
+    "success": true,
+    "pdfContent": {
+      "titre": "Salsifis noir",
+      "sousTitre": "Français",
+      "slogan": "Une racine au goût délicat, alliant douceur et caractère",
+      "caracteristiques": [
+        {
+          "type": "Apparence",
+          "description": "Racine noire longue (30+ cm), charnue, plus moelleuse que le salsifis blanc."
+        },
+        {
+          "type": "Goût",
+          "description": "Saveur délicate sucrée, texture fondante, rappelle artichaut ou noisette."
+        },
+        {
+          "type": "Nutrition",
+          "description": "Couleur rose due au lycopène (comme le pamplemousse et la tomate), différente des oranges sanguines."
+        }
+      ],
+      "consommation": [
+        "Nature, pour apprécier pleinement sa fraîcheur",
+        "En salade composée avec des herbes aromatiques",
+        "Cuisiné pour révéler tous ses arômes subtils"
+      ]
+    },
+    "debug": {
+      "xmlReceived": "<fiche>\n  <titre>Salsifis noir</titre>\n  <sousTitre>Français</sousTitre>\n  <slogan>Une racine au goût délicat, alliant douceur et caractère</slogan>\n  <caracteristiques>\n    <caracteristique type=\"Apparence\">Racine noire longue (30+ cm), charnue, plus moelleuse que le salsifis blanc.</caracteristique>\n    <caracteristique type=\"Goût\">Saveur délicate sucrée, texture fondante, rappelle artichaut ou noisette.</caracteristique>\n    <caracteristique type=\"Nutrition\">Couleur rose due au lycopène (comme le pamplemousse et la tomate), différente des oranges sanguines.</caracteristique>\n  </caracteristiques>\n  <consommation>\n    <suggestion>Nature, pour apprécier pleinement sa fraîcheur</suggestion>\n    <suggestion>En salade composée avec des herbes aromatiques</suggestion>\n    <suggestion>Cuisiné pour révéler tous ses arômes subtils</suggestion>\n  </consommation>\n</fiche>",
+      "parsedCorrectly": true,
+      "caracteristiquesCount": 3,
+      "caracteristiquesWithDescription": 3,
+      "consommationCount": 3
+    }
+  }
+]
+

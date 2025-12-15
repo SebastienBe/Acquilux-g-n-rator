@@ -138,6 +138,7 @@
   align-items: center;
   gap: 6px;
   margin-bottom: 8px;
+  flex-wrap: wrap; /* Permet aux groupes de passer à la ligne si l'espace est trop réduit */
 }
 
 .figma-control-row:last-child {
@@ -174,6 +175,7 @@
   border-radius: 4px;
   overflow: hidden;
   flex: 1;
+  min-width: 0; /* Permet aux champs de se réduire correctement dans les petites colonnes */
   transition: all 0.15s ease;
 }
 
@@ -198,6 +200,18 @@
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   outline: none;
   min-width: 0;
+}
+
+/* Masquer les flèches natives des inputs number pour un look 100% custom
+   et forcer l'utilisation des flèches Figma (▲ / ▼) à côté des champs */
+.figma-number-input::-webkit-outer-spin-button,
+.figma-number-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.figma-number-input {
+  -moz-appearance: textfield;
 }
 
 .figma-textarea {

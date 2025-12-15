@@ -282,7 +282,30 @@ async function downloadPDF() {
               }
             }
           }
-          
+
+          // ❌ On ne recalcule plus un crop bitmap spécifique pour le PDF.
+          //    html2canvas capture désormais l'image telle qu'elle apparaît en preview
+          //    (width/height %, zoom, object-fit, object-position, hauteur du conteneur, etc.)
+          //    afin que le rendu PDF soit le plus fidèle possible à la preview.
+
+          // ✅ Forcer le conteneur d'image produit dans le clone à garder
+          //    exactement la même hauteur que dans la preview pour éviter
+          //    tout effet d'image "aplatît" dû à des différences de ratio.
+          try {
+            const originalImageContainer = originalElement.querySelector('.product-image-container');
+            const clonedImageContainer = clonedElement.querySelector('.product-image-container');
+            if (originalImageContainer && clonedImageContainer) {
+              const originalHeight = originalImageContainer.clientHeight || originalImageContainer.offsetHeight;
+              if (originalHeight && isFinite(originalHeight)) {
+                clonedImageContainer.style.height = originalHeight + 'px';
+                clonedImageContainer.style.minHeight = originalHeight + 'px';
+                clonedImageContainer.style.maxHeight = originalHeight + 'px';
+              }
+            }
+          } catch (e) {
+            console.warn('⚠️ Impossible de synchroniser la hauteur du conteneur d\'image pour le PDF:', e);
+          }
+
           // Masquer la grille et les guides si nécessaire
           if (window.getExportOptions) {
             const exportOpts = window.getExportOptions();
