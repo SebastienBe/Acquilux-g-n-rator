@@ -4,18 +4,8 @@
 
 (function() {
   let imageManagerModal = null;
-  let currentMode = 'search'; // 'search' ou 'edit'
+  let currentMode = 'edit'; // 'edit' uniquement (recherche Pexels supprimée)
   let currentImage = null;
-  let searchInput = null;
-  let imageGrid = null;
-  let currentSearchTerm = '';
-  let currentPage = 1;
-  let isLoading = false;
-  let totalResults = 0;
-
-  // Configuration Pexels API
-  const PEXELS_API_KEY = 'jLdl1Iz5Xr6f8y4enMih2WIkx5fVpyupGOs1euofGjy9jjMKxwFZ3swh';
-  const PEXELS_API_URL = 'https://api.pexels.com/v1/search';
 
   // Variables pour l'éditeur
   let currentRotation = 0;
@@ -29,9 +19,9 @@
 
   // Initialisation
   function init() {
-    createImageManagerModal();
-    setupImageManagerButton();
-    setupImageClickHandler();
+    // Modal désactivée temporairement pour tests
+    // createImageManagerModal();
+    // setupImageClickHandler();
     setupPasteHandler();
   }
 
@@ -43,58 +33,15 @@
     imageManagerModal.innerHTML = `
       <div class="image-manager-modal-content">
         <div class="image-manager-modal-header">
-          <div class="image-manager-tabs">
-            <button class="image-manager-tab active" data-tab="search">
-              <span class="tab-icon">🔍</span>
-              <span class="tab-label">Rechercher</span>
-            </button>
-            <button class="image-manager-tab" data-tab="edit">
-              <span class="tab-icon">✏️</span>
-              <span class="tab-label">Éditer</span>
-            </button>
-          </div>
+          <h2 class="image-manager-modal-title">Éditeur d'image</h2>
           <button class="image-manager-modal-close" id="imageManagerModalClose" aria-label="Fermer">
             <span>✕</span>
           </button>
         </div>
         
         <div class="image-manager-modal-body">
-          <!-- Onglet Recherche -->
-          <div class="image-manager-tab-content active" id="tab-search">
-            <div class="image-search-bar">
-              <input 
-                type="text" 
-                id="imageSearchInput" 
-                class="image-search-input" 
-                placeholder="Rechercher une image (ex: pomme, tomate, apple, tomato)"
-                autocomplete="off"
-              >
-              <button class="image-search-btn" id="imageSearchBtn">
-                <span>🔍</span>
-                <span>Rechercher</span>
-              </button>
-            </div>
-            <div class="image-search-info" id="imageSearchInfo">
-              <p>💡 Utilisez des mots-clés simples en français ou en anglais</p>
-            </div>
-            <div class="image-search-grid" id="imageSearchGrid">
-              <div class="image-search-empty">
-                <p>🔍 Entrez un terme de recherche pour commencer</p>
-              </div>
-            </div>
-            <div class="image-search-loading" id="imageSearchLoading" style="display: none;">
-              <div class="spinner"></div>
-              <p>Recherche en cours...</p>
-            </div>
-            <div class="image-search-pagination" id="imageSearchPagination" style="display: none;">
-              <button class="image-search-pagination-btn" id="imageSearchPrev" disabled>← Précédent</button>
-              <span class="image-search-page-info" id="imageSearchPageInfo">Page 1</span>
-              <button class="image-search-pagination-btn" id="imageSearchNext">Suivant →</button>
-            </div>
-          </div>
-
           <!-- Onglet Édition -->
-          <div class="image-manager-tab-content" id="tab-edit">
+          <div class="image-manager-tab-content active" id="tab-edit">
             <div class="image-editor-empty" id="imageEditorEmpty">
               <p>📷 Sélectionnez une image dans le PDF pour l'éditer</p>
               <p class="hint">Cliquez sur une image intégrée dans le PDF</p>
@@ -197,33 +144,19 @@
       </div>
     `;
     document.body.appendChild(imageManagerModal);
-
-    // Références
-    searchInput = document.getElementById('imageSearchInput');
-    imageGrid = document.getElementById('imageSearchGrid');
     
     // Événements
     setupModalEvents();
-    setupSearchEvents();
     setupEditorEvents();
   }
 
   // Configurer les événements de la modal
   function setupModalEvents() {
     const closeBtn = document.getElementById('imageManagerModalClose');
-    const tabs = imageManagerModal.querySelectorAll('.image-manager-tab');
 
     if (closeBtn) {
       closeBtn.addEventListener('click', closeModal);
     }
-
-    // Navigation par onglets
-    tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        const tabName = tab.dataset.tab;
-        switchTab(tabName);
-      });
-    });
 
     // Fermer avec Échap
     document.addEventListener('keydown', (e) => {
@@ -240,56 +173,6 @@
     });
   }
 
-  // Changer d'onglet
-  function switchTab(tabName) {
-    currentMode = tabName;
-    
-    // Mettre à jour les onglets
-    imageManagerModal.querySelectorAll('.image-manager-tab').forEach(tab => {
-      tab.classList.toggle('active', tab.dataset.tab === tabName);
-    });
-    
-    // Mettre à jour le contenu
-    imageManagerModal.querySelectorAll('.image-manager-tab-content').forEach(content => {
-      content.classList.toggle('active', content.id === `tab-${tabName}`);
-    });
-  }
-
-  // Configurer les événements de recherche
-  function setupSearchEvents() {
-    const searchBtn = document.getElementById('imageSearchBtn');
-    const prevBtn = document.getElementById('imageSearchPrev');
-    const nextBtn = document.getElementById('imageSearchNext');
-
-    if (searchBtn) {
-      searchBtn.addEventListener('click', performSearch);
-    }
-
-    if (searchInput) {
-      searchInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          performSearch();
-        }
-      });
-    }
-
-    if (prevBtn) {
-      prevBtn.addEventListener('click', () => {
-        if (currentPage > 1) {
-          currentPage--;
-          performSearch(currentSearchTerm, currentPage);
-        }
-      });
-    }
-
-    if (nextBtn) {
-      nextBtn.addEventListener('click', () => {
-        currentPage++;
-        performSearch(currentSearchTerm, currentPage);
-      });
-    }
-  }
 
   // Configurer les événements de l'éditeur
   function setupEditorEvents() {
@@ -439,52 +322,12 @@
     `;
   }
 
-  // Configurer le bouton dans le header
-  function setupImageManagerButton() {
-    const headerActions = document.querySelector('.header-actions');
-    if (!headerActions) {
-      setTimeout(setupImageManagerButton, 100);
-      return;
-    }
-
-    // Vérifier si le bouton existe déjà
-    let imageManagerBtn = document.getElementById('imageManagerToggleBtn');
-
-    if (!imageManagerBtn) {
-      // Créer le bouton s'il n'existe pas
-      imageManagerBtn = document.createElement('button');
-    imageManagerBtn.className = 'btn-icon';
-    imageManagerBtn.id = 'imageManagerToggleBtn';
-    imageManagerBtn.setAttribute('aria-label', 'Gérer les images');
-    imageManagerBtn.innerHTML = '<span class="icon">🖼️</span>';
-    imageManagerBtn.title = 'Rechercher et éditer des images';
-
-    const badgesBtn = document.getElementById('badgesToggleBtn');
-    if (badgesBtn) {
-      headerActions.insertBefore(imageManagerBtn, badgesBtn.nextSibling);
-    } else {
-      headerActions.appendChild(imageManagerBtn);
-    }
-    }
-    
-    // Attacher l'event listener (même si le bouton existe déjà)
-    // Retirer les anciens listeners pour éviter les doublons
-    const newBtn = imageManagerBtn.cloneNode(true);
-    imageManagerBtn.parentNode.replaceChild(newBtn, imageManagerBtn);
-    newBtn.addEventListener('click', () => {
-      openModal('search');
-    });
-  }
 
   // Ouvrir la modal
-  function openModal(mode = 'search') {
+  function openModal(mode = 'edit') {
     if (imageManagerModal) {
       imageManagerModal.classList.add('active');
-      switchTab(mode);
-      
-      if (mode === 'search' && searchInput) {
-        searchInput.focus();
-      }
+      currentMode = 'edit';
     }
   }
 
@@ -497,176 +340,6 @@
     originalImageData = null;
   }
 
-  // Effectuer la recherche
-  async function performSearch(term = null, page = 1) {
-    if (isLoading) return;
-
-    let searchTerm = null;
-    if (term !== null && term !== undefined) {
-      searchTerm = String(term).trim();
-    } else if (searchInput?.value) {
-      searchTerm = String(searchInput.value).trim();
-    }
-    
-    if (!searchTerm || searchTerm.length === 0) {
-      showMessage('Veuillez entrer un terme de recherche', 'error');
-      return;
-    }
-
-    searchTerm = cleanSearchTerm(searchTerm);
-    if (!searchTerm) {
-      showMessage('Terme de recherche invalide', 'error');
-      return;
-    }
-
-    console.log('Recherche Pexels:', searchTerm);
-    currentSearchTerm = searchTerm;
-    currentPage = page;
-    isLoading = true;
-
-    const loadingEl = document.getElementById('imageSearchLoading');
-    const gridEl = document.getElementById('imageSearchGrid');
-    const paginationEl = document.getElementById('imageSearchPagination');
-    const infoEl = document.getElementById('imageSearchInfo');
-
-    if (loadingEl) loadingEl.style.display = 'block';
-    if (gridEl) gridEl.innerHTML = '';
-    if (paginationEl) paginationEl.style.display = 'none';
-    if (infoEl) infoEl.style.display = 'none';
-
-    try {
-      const images = await searchImagesPexels(searchTerm, page);
-      
-      if (images.length === 0) {
-        showNoResults();
-        return;
-      }
-
-      displayImages(images);
-      updatePagination(page);
-
-    } catch (error) {
-      console.error('Erreur lors de la recherche d\'images:', error);
-      showMessage('Erreur lors de la recherche. Veuillez réessayer.', 'error');
-    } finally {
-      isLoading = false;
-      if (loadingEl) loadingEl.style.display = 'none';
-    }
-  }
-
-  // Nettoyer le terme de recherche
-  function cleanSearchTerm(term) {
-    if (!term) return '';
-    if (typeof term !== 'string') {
-      term = String(term);
-    }
-    
-    term = term.trim().replace(/\s+/g, ' ');
-    term = term.replace(/[^\w\s\-àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]/gi, '');
-    
-    if (term.length > 100) {
-      term = term.substring(0, 100).trim();
-    }
-    
-    if (term.length < 1) {
-      return null;
-    }
-    
-    return term;
-  }
-
-  // Rechercher avec Pexels API
-  async function searchImagesPexels(term, page) {
-    try {
-      const perPage = 20;
-      const cleanTerm = cleanSearchTerm(term);
-      if (!cleanTerm) return [];
-      
-      const encodedTerm = encodeURIComponent(cleanTerm);
-      const apiUrl = `${PEXELS_API_URL}?query=${encodedTerm}&per_page=${perPage}&page=${page}`;
-      
-      const response = await fetch(apiUrl, {
-        headers: {
-          'Authorization': PEXELS_API_KEY
-        }
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Clé API Pexels invalide');
-        } else if (response.status === 429) {
-          throw new Error('Trop de requêtes. Veuillez patienter un moment.');
-        } else {
-          throw new Error(`Erreur API Pexels: ${response.status}`);
-        }
-      }
-
-      const data = await response.json();
-      totalResults = data.total_results || 0;
-      
-      if (!data.photos || data.photos.length === 0) {
-        return [];
-      }
-
-      return data.photos.map((photo, index) => ({
-        id: `pexels-${photo.id}`,
-        url: photo.src.medium,
-        fullUrl: photo.src.large2x || photo.src.large || photo.src.original,
-        description: photo.alt || `${cleanTerm} - Image ${index + 1}`,
-        author: photo.photographer,
-        authorUrl: photo.photographer_url
-      }));
-    } catch (error) {
-      console.error('Erreur lors de la recherche d\'images Pexels:', error);
-      throw error;
-    }
-  }
-
-  // Afficher les images
-  function displayImages(images) {
-    if (!imageGrid) return;
-
-    if (images.length === 0) {
-      imageGrid.innerHTML = '<div class="image-search-empty"><p>Aucune image trouvée</p></div>';
-      return;
-    }
-
-    imageGrid.innerHTML = images.map(img => {
-      const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(img.url)}&w=400&h=300&fit=cover`;
-      const fullProxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(img.fullUrl || img.url)}&w=1200&h=900&fit=cover`;
-      
-      return `
-      <div class="image-search-item" data-image-id="${img.id}">
-        <div class="image-search-item-image">
-          <img 
-            src="${proxyUrl}" 
-            alt="${escapeHtml(img.description)}" 
-            loading="lazy"
-            data-full-url="${fullProxyUrl}"
-          >
-          <div class="image-search-item-overlay">
-            <button class="image-search-item-btn" data-image-url="${fullProxyUrl}" data-image-id="${img.id}">
-              <span>✓</span>
-              <span>Sélectionner</span>
-            </button>
-          </div>
-        </div>
-        <div class="image-search-item-info">
-          <p class="image-search-item-title">${escapeHtml(img.description)}</p>
-          <p class="image-search-item-author">Par ${escapeHtml(img.author)}</p>
-        </div>
-      </div>
-    `;
-    }).join('');
-
-    // Attacher les événements de sélection
-    imageGrid.querySelectorAll('.image-search-item-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const imageUrl = e.currentTarget.dataset.imageUrl;
-        selectImage(imageUrl);
-      });
-    });
-  }
 
   // Gérer le collage d'images depuis le presse-papiers
   function setupPasteHandler() {
@@ -720,24 +393,6 @@
     const imageContainer = pdfPreview.querySelector('.product-image-container');
     
     if (imageContainer) {
-      const applyDefaultStyles = (img) => {
-        img.style.width = '100%';
-        img.style.height = '100%'; // pour permettre object-fit et object-position en Y
-        img.style.maxHeight = 'none';
-        img.style.objectFit = 'cover';
-        img.style.objectPosition = 'center';
-        img.style.display = 'block';
-        img.style.cursor = 'pointer';
-      };
-
-      const adjustContainerHeight = (img) => {
-        if (!imageContainer || !img) return;
-        const cw = imageContainer.clientWidth || img.clientWidth || 400;
-        const ratio = (img.naturalHeight && img.naturalWidth) ? (img.naturalHeight / img.naturalWidth) : 1;
-        // Hauteur visible basée sur ratio, bornée
-        const h = Math.max(200, Math.min(520, cw * ratio));
-        imageContainer.style.height = `${h}px`;
-      };
       // Placer l'image dans le contenu du PDF (position principale)
       const existingImg = imageContainer.querySelector('img');
       
@@ -746,33 +401,19 @@
       imgElement.alt = 'Image produit';
       imgElement.className = 'product-image';
       imgElement.crossOrigin = 'anonymous';
-      applyDefaultStyles(imgElement);
       
-      // Ajouter l'attribut data-editable pour permettre l'édition
+      // Ajouter l'attribut data-editable pour permettre l'édition via le panel Figma
       imgElement.setAttribute('data-editable', 'image');
       imgElement.setAttribute('data-editable-type', 'image');
       
+      // MODE TEST : Charger l'image sans modification
       // Si c'est une data URL (image collée), l'utiliser directement
       if (imageUrl.startsWith('data:')) {
-        const tmp = new Image();
-        tmp.onload = () => {
-          imgElement.src = imageUrl;
-          if (!existingImg) {
-            imageContainer.appendChild(imgElement);
-          }
-          adjustContainerHeight(tmp);
-          showMessage('Image collée avec succès', 'success');
-          if (!isPasted) {
-            closeModal();
-          }
-        };
-        tmp.onerror = () => {
-          imgElement.src = imageUrl;
-          if (!existingImg) imageContainer.appendChild(imgElement);
-          showMessage('Image collée (taille par défaut)', 'warning');
-          if (!isPasted) closeModal();
-        };
-        tmp.src = imageUrl;
+        imgElement.src = imageUrl;
+        if (!existingImg) {
+          imageContainer.appendChild(imgElement);
+        }
+        showMessage('Image collée avec succès (mode test - sans modification)', 'success');
         return;
       }
       
@@ -785,12 +426,7 @@
         if (!existingImg) {
           imageContainer.appendChild(imgElement);
         }
-        adjustContainerHeight(tempImg);
-        
-        showMessage('Image ajoutée dans le PDF', 'success');
-        if (!isPasted) {
-          closeModal();
-        }
+        showMessage('Image ajoutée (mode test - sans modification)', 'success');
       };
 
       tempImg.onerror = function() {
@@ -1066,49 +702,37 @@
     }
   }
 
-  // Mettre à jour la pagination
-  function updatePagination(page) {
-    const paginationEl = document.getElementById('imageSearchPagination');
-    const pageInfoEl = document.getElementById('imageSearchPageInfo');
-    const prevBtn = document.getElementById('imageSearchPrev');
-    const nextBtn = document.getElementById('imageSearchNext');
 
-    if (paginationEl) paginationEl.style.display = 'flex';
-    if (pageInfoEl) {
-      const perPage = 20;
-      const totalPages = totalResults > 0 ? Math.ceil(totalResults / perPage) : 0;
-      if (totalPages > 0) {
-        pageInfoEl.textContent = `Page ${page} / ${totalPages} (${totalResults} résultats)`;
-      } else {
-        pageInfoEl.textContent = `Page ${page}`;
-      }
-    }
-    if (prevBtn) prevBtn.disabled = page === 1;
-    if (nextBtn) {
-      const perPage = 20;
-      const totalPages = totalResults > 0 ? Math.ceil(totalResults / perPage) : 0;
-      nextBtn.disabled = page >= totalPages || totalPages === 0;
-    }
-  }
-
-  // Afficher "aucun résultat"
-  function showNoResults() {
-    if (imageGrid) {
-      imageGrid.innerHTML = '<div class="image-search-empty"><p>😔 Aucune image trouvée pour cette recherche</p><p style="font-size: 0.9rem; color: #999; margin-top: 8px;">Essayez avec des mots-clés plus génériques ou en anglais</p></div>';
-    }
-  }
-
-  // Afficher un message
+  // Afficher un message (utilisé pour les notifications de collage d'image, etc.)
   function showMessage(message, type = 'info') {
-    const infoEl = document.getElementById('imageSearchInfo');
-    if (infoEl) {
-      infoEl.innerHTML = `<p class="image-search-message image-search-message-${type}">${message}</p>`;
-      infoEl.style.display = 'block';
-      
+    // Créer un élément de notification temporaire
+    const notification = document.createElement('div');
+    notification.className = `image-notification image-notification-${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      background: ${type === 'error' ? '#f44336' : type === 'success' ? '#4caf50' : type === 'warning' ? '#ff9800' : '#2196f3'};
+      color: white;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      z-index: 10000;
+      font-size: 14px;
+      max-width: 300px;
+    `;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      notification.style.opacity = '0';
+      notification.style.transition = 'opacity 0.3s';
       setTimeout(() => {
-        infoEl.style.display = 'none';
-      }, 3000);
-    }
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 300);
+    }, 3000);
   }
 
   // Helper pour escape HTML

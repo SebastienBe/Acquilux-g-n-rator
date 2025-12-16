@@ -141,16 +141,19 @@
 }
 
 /* Conteneur de l'image produit - Dans le contenu du PDF, sous le header content */
+/* Rendu flottant (position: absolute) pour éviter l'impact des marges du contenu */
 #pdfPreview .product-image-container {
   width: 100%;
-  position: relative;
+  position: absolute;
+  left: 0;
+  right: 0;
   z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   height: 320px; /* hauteur fixe pour permettre le recadrage vertical */
   min-height: 200px;
-  margin: 0 0 20px 0;
+  margin: 0;
 }
 
 /* Image produit - Dans le contenu du PDF */
@@ -221,6 +224,14 @@
 }
 
 /* Premier h2 après l'image : margin-top par défaut (surchargée si l'utilisateur modifie le spacing) */
+/* Ajouter un espace réservé pour l'image flottante */
+#pdfPreview .product-image-container::after {
+  content: '';
+  display: block;
+  height: 320px; /* Hauteur par défaut, sera ajustée dynamiquement */
+  margin-top: 50px; /* Top de base de l'image */
+}
+
 #pdfPreview .product-image-container + h2 {
   margin-top: 12px;
 }

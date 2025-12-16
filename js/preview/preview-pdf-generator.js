@@ -8,11 +8,10 @@
 async function convertImageToBase64OnLoad(img) {
   return new Promise((resolve) => {
     if (img.complete && img.naturalWidth > 0) {
-      // Image déjà chargée
       convertImageToBase64(img).then(resolve);
     } else {
       img.onload = () => convertImageToBase64(img).then(resolve);
-      img.onerror = () => resolve(null); // Si l'image ne charge pas, retourner null
+      img.onerror = () => resolve(null);
     }
   });
 }
@@ -22,28 +21,37 @@ async function convertImageToBase64OnLoad(img) {
  */
 function convertImageToBase64(img) {
   return new Promise((resolve) => {
-    // Si l'image est déjà en base64, la retourner directement
     if (img.src && img.src.startsWith('data:')) {
       resolve(img.src);
       return;
     }
 
-    // Pour les images file://, essayer d'utiliser XMLHttpRequest avec blob
     if (img.src && img.src.startsWith('file://')) {
-      // Malheureusement, XMLHttpRequest ne fonctionne pas avec file://
-      // Il faut utiliser un serveur local
       console.warn('⚠️ Impossible de convertir une image file:// en base64. Utilisez un serveur local.');
       resolve(null);
       return;
     }
 
-    // Pour les autres images, essayer avec canvas
     try {
+      // Utiliser les dimensions naturelles pour préserver les proportions
+      // Ne pas utiliser les dimensions CSS qui pourraient être déformées
+      const naturalWidth = img.naturalWidth || img.width;
+      const naturalHeight = img.naturalHeight || img.height;
+      
+      if (!naturalWidth || !naturalHeight || naturalWidth === 0 || naturalHeight === 0) {
+        console.warn('⚠️ Dimensions naturelles invalides pour l\'image');
+        resolve(null);
+        return;
+      }
+      
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      canvas.width = img.naturalWidth || img.width;
-      canvas.height = img.naturalHeight || img.height;
-      ctx.drawImage(img, 0, 0);
+      // Utiliser les dimensions naturelles pour préserver le ratio
+      canvas.width = naturalWidth;
+      canvas.height = naturalHeight;
+      // Dessiner l'image sans redimensionnement pour préserver les proportions
+      ctx.drawImage(img, 0, 0, naturalWidth, naturalHeight);
+      // Utiliser PNG pour préserver la qualité (pas de compression JPEG)
       const dataURI = canvas.toDataURL('image/png');
       resolve(dataURI);
     } catch (err) {
@@ -52,7 +60,6 @@ function convertImageToBase64(img) {
     }
   });
 }
-
 
 /**
  * Convertit une image en data URI
@@ -75,24 +82,82 @@ async function convertImageToDataURI(img) {
 }
 
 /**
- * Prépare les images pour html2canvas
+ * Prépare les images pour html2canvas (conversion en data URI)
  */
 async function prepareImagesForCanvas(element) {
   const images = element.querySelectorAll('img');
   const imagePromises = [];
   
   for (const img of images) {
-    if (img.src && !img.src.startsWith('data:')) {
-      imagePromises.push(
-        convertImageToDataURI(img)
-          .then(dataURI => {
-            img.src = dataURI;
-            console.log('✅ Image convertie en data URI:', img.alt || 'sans alt');
+    if (img.src) {
+      // Pour les images data: (collées), s'assurer qu'elles sont chargées
+      if (img.src.startsWith('data:')) {
+        imagePromises.push(
+          new Promise((resolve) => {
+            if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+              resolve();
+            } else {
+              img.onload = () => resolve();
+              img.onerror = () => resolve();
+              // Timeout de sécurité
+              setTimeout(() => resolve(), 5000);
+            }
           })
-          .catch(err => {
-            console.error('❌ Erreur conversion image:', err);
-          })
-      );
+        );
+      }
+      // Gérer les blob URLs
+      else if (img.src.startsWith('blob:')) {
+        imagePromises.push(
+          (async () => {
+            try {
+              const response = await fetch(img.src);
+              const blob = await response.blob();
+              const reader = new FileReader();
+              const dataUri = await new Promise((resolve, reject) => {
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+              });
+              img.src = dataUri;
+              // Attendre que l'image soit chargée après conversion
+              await new Promise((resolve) => {
+                if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+                  resolve();
+                } else {
+                  img.onload = () => resolve();
+                  img.onerror = () => resolve();
+                  setTimeout(() => resolve(), 5000);
+                }
+              });
+            } catch (err) {
+              console.warn('⚠️ Erreur conversion badge blob pour PDF:', err);
+            }
+          })()
+        );
+      } else {
+        // Images HTTP normales
+        imagePromises.push(
+          convertImageToDataURI(img)
+            .then(dataURI => {
+                if (dataURI) {
+                  img.src = dataURI;
+                  // Attendre que l'image soit chargée après conversion
+                  return new Promise((resolve) => {
+                    if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+                      resolve();
+                    } else {
+                      img.onload = () => resolve();
+                      img.onerror = () => resolve();
+                      setTimeout(() => resolve(), 5000);
+                    }
+                  });
+                }
+            })
+            .catch(err => {
+              console.error('❌ Erreur conversion image:', err);
+            })
+        );
+      }
     }
   }
   
@@ -100,7 +165,471 @@ async function prepareImagesForCanvas(element) {
   await Promise.all(imagePromises);
   
   // Attendre un peu pour que les images soient bien chargées dans le DOM
-  await new Promise(resolve => setTimeout(resolve, 100));
+  await new Promise(resolve => setTimeout(resolve, 300));
+}
+
+/**
+ * Copie les styles inline en excluant le conteneur d'image
+ */
+function copyInlineStyles(source, target) {
+  if (!source || !target) return;
+  
+  // Exclure le conteneur d'image de la copie récursive pour éviter les conflits
+  if (source.classList && source.classList.contains('product-image-container')) {
+    return;
+  }
+  
+  // Copier les styles inline de l'élément
+  if (source.style && source.style.cssText) {
+    target.style.cssText = source.style.cssText;
+  }
+  
+  // MODE TEST : Pour les éléments de typographie (h1, h2, li, p, etc.), copier aussi les styles computed
+  // si pas de styles inline, pour garantir un rendu identique
+  const isTypographyElement = source.tagName && ['H1', 'H2', 'H3', 'P', 'LI', 'SPAN', 'STRONG', 'EM'].includes(source.tagName);
+  if (isTypographyElement && (!source.style.cssText || source.style.cssText.trim() === '')) {
+    try {
+      const computedStyle = window.getComputedStyle(source);
+      // Copier les propriétés de typographie importantes
+      if (computedStyle.fontSize) target.style.fontSize = computedStyle.fontSize;
+      if (computedStyle.fontWeight) target.style.fontWeight = computedStyle.fontWeight;
+      if (computedStyle.fontFamily) target.style.fontFamily = computedStyle.fontFamily;
+      if (computedStyle.lineHeight) target.style.lineHeight = computedStyle.lineHeight;
+      if (computedStyle.letterSpacing) target.style.letterSpacing = computedStyle.letterSpacing;
+      if (computedStyle.color) target.style.color = computedStyle.color;
+    } catch (e) {
+      // Ignorer les erreurs de computed style
+    }
+  }
+  
+  // Copier récursivement pour tous les enfants (sauf le conteneur d'image)
+  const sourceChildren = source.children || [];
+  const targetChildren = target.children || [];
+  
+  for (let i = 0; i < Math.min(sourceChildren.length, targetChildren.length); i++) {
+    const sourceChild = sourceChildren[i];
+    const targetChild = targetChildren[i];
+    
+    if (sourceChild.classList && sourceChild.classList.contains('product-image-container')) {
+      continue;
+    }
+    
+    copyInlineStyles(sourceChild, targetChild);
+  }
+  
+  // Copier aussi pour les nodes (pour capturer les text nodes si nécessaire)
+  const sourceNodes = source.childNodes || [];
+  const targetNodes = target.childNodes || [];
+  
+  for (let i = 0; i < Math.min(sourceNodes.length, targetNodes.length); i++) {
+    if (sourceNodes[i].nodeType === 1 && targetNodes[i].nodeType === 1) {
+      if (sourceNodes[i].classList && sourceNodes[i].classList.contains('product-image-container')) {
+        continue;
+      }
+      copyInlineStyles(sourceNodes[i], targetNodes[i]);
+    }
+  }
+}
+
+/**
+ * Capture les styles critiques du conteneur d'image et de l'image
+ */
+function captureImageStyles(originalElement) {
+  const result = {
+    containerHeight: null,
+    containerMarginTop: '',
+    imageStyles: {
+      width: '100%',
+      height: '100%',
+      transform: '',
+      filter: '',
+      objectFit: 'cover',
+      objectPosition: 'center',
+      clipPath: 'none'
+    }
+  };
+  
+  try {
+    const container = originalElement.querySelector('.product-image-container');
+    const image = container?.querySelector('img');
+    
+    if (container) {
+      // Capturer la hauteur depuis le style inline en priorité (plus fiable que computedHeight avec marginTop)
+      const styleHeight = container.style.height;
+      const computedHeight = container.clientHeight || container.offsetHeight;
+      
+      // Priorité au style inline car il reflète exactement ce qui a été calculé
+      if (styleHeight && typeof styleHeight === 'string' && styleHeight.endsWith('px')) {
+        const parsedHeight = parseFloat(styleHeight);
+        if (parsedHeight && isFinite(parsedHeight) && parsedHeight > 0) {
+          result.containerHeight = parsedHeight;
+        }
+      }
+      
+      // Fallback sur computedHeight si pas de style inline
+      if (!result.containerHeight && computedHeight && isFinite(computedHeight) && computedHeight > 0) {
+        result.containerHeight = computedHeight;
+      }
+      
+      // Capturer le top ou marginTop (important pour le déplacement Y)
+      // Priorité au top si position est absolute, sinon marginTop
+      if (container.style.position === 'absolute' || window.getComputedStyle(container).position === 'absolute') {
+        result.containerMarginTop = container.style.top || '';
+      } else {
+        result.containerMarginTop = container.style.marginTop || '';
+      }
+      
+      if (image) {
+        const computedStyle = window.getComputedStyle(image);
+        
+        // Capturer les valeurs de crop depuis dataset pour recalculer si nécessaire
+        const cropTop = image.dataset.cropTop ? parseFloat(image.dataset.cropTop) : 0;
+        const cropBottom = image.dataset.cropBottom ? parseFloat(image.dataset.cropBottom) : 0;
+        const cropLeft = image.dataset.cropLeft ? parseFloat(image.dataset.cropLeft) : 0;
+        const cropRight = image.dataset.cropRight ? parseFloat(image.dataset.cropRight) : 0;
+        const zoom = image.dataset.zoom ? parseFloat(image.dataset.zoom) : 100;
+        const widthPercent = image.dataset.widthPercent ? parseFloat(image.dataset.widthPercent) : 100;
+        const heightPercent = image.dataset.heightPercent ? parseFloat(image.dataset.heightPercent) : 100;
+        
+        result.imageStyles = {
+          // Utiliser widthPercent et heightPercent comme valeurs principales
+          // Les valeurs width/height servent de fallback mais ne sont pas utilisées lors de la réapplication
+          width: `${widthPercent}%`,
+          height: `${heightPercent}%`,
+          transform: image.style.transform || '',
+          filter: image.style.filter || '',
+          objectFit: image.style.objectFit || computedStyle.objectFit || 'cover',
+          objectPosition: image.style.objectPosition || computedStyle.objectPosition || 'center',
+          clipPath: image.style.clipPath || 'none',
+          // Valeurs de crop et dimensions depuis dataset (prioritaires)
+          cropTop: cropTop,
+          cropBottom: cropBottom,
+          cropLeft: cropLeft,
+          cropRight: cropRight,
+          zoom: zoom,
+          widthPercent: widthPercent,
+          heightPercent: heightPercent
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('⚠️ Erreur lors de la capture des styles d\'image:', e);
+  }
+  
+  return result;
+}
+
+/**
+ * Réapplique les styles critiques du conteneur d'image et de l'image dans le clone
+ */
+async function reapplyImageStyles(clonedElement, imageStyles) {
+  try {
+    const container = clonedElement.querySelector('.product-image-container');
+    const image = container?.querySelector('img');
+    
+    if (container && image) {
+      const styles = imageStyles.imageStyles;
+      
+      // Récupérer les valeurs de crop pour recalculer la hauteur avec la même logique que la preview
+      const cropTop = styles.cropTop || 0;
+      const cropBottom = styles.cropBottom || 0;
+      const zoom = styles.zoom || 100;
+      const widthPercent = styles.widthPercent || 100;
+      const heightPercent = styles.heightPercent || 100;
+      
+      // IMPORTANT : Appliquer position et width AVANT de calculer containerWidth
+      // pour que le calcul soit identique à la preview
+      container.style.position = 'absolute';
+      container.style.left = '0';
+      container.style.right = '0';
+      container.style.margin = '0';
+      container.style.width = '100%';
+      container.style.display = 'block';
+      
+      // Forcer un reflow pour que la largeur soit calculée
+      container.offsetWidth;
+      
+      // MAINTENANT calculer la largeur avec la même logique que la preview
+      // Utiliser clientWidth comme dans la preview (calculé après les styles)
+      // IMPORTANT : S'assurer que le parent a sa largeur définie (comme dans la preview)
+      const parent = container.parentElement;
+      if (parent) {
+        // Forcer un reflow du parent pour que sa largeur soit calculée
+        parent.offsetWidth;
+      }
+      
+      let containerWidth = container.clientWidth || image.clientWidth || 1;
+      if (!containerWidth || containerWidth === 0) {
+        // Fallback sur le parent si nécessaire
+        containerWidth = parent ? (parent.offsetWidth || parent.clientWidth || 400) : 400;
+      }
+      
+      // S'assurer que la largeur est valide (identique à la preview qui utilise || 1)
+      if (!containerWidth || containerWidth === 0) {
+        containerWidth = 1; // Valeur par défaut comme dans la preview
+      }
+      
+      // Recalculer la hauteur avec la même logique que dans la preview
+      // IMPORTANT : Le crop ne réduit PAS la hauteur du conteneur pour éviter l'aplatissement
+      // Le crop est géré uniquement via object-position
+      // S'assurer que l'image a ses dimensions naturelles avant de calculer
+      if (!image.complete || !image.naturalWidth || !image.naturalHeight) {
+        // Attendre que l'image soit chargée
+        await new Promise((resolve) => {
+          if (image.complete && image.naturalWidth > 0 && image.naturalHeight > 0) {
+            resolve();
+          } else {
+            image.onload = () => resolve();
+            image.onerror = () => resolve();
+            setTimeout(() => resolve(), 5000);
+          }
+        });
+      }
+      
+      const ratio = image.naturalHeight && image.naturalWidth
+        ? image.naturalHeight / image.naturalWidth
+        : 1;
+      
+      let calculatedHeight = containerWidth * ratio;
+      calculatedHeight *= (heightPercent / 100);
+      calculatedHeight *= (zoom / 100);
+      // Réduire la hauteur de base de 40px pour un meilleur rendu (même logique que la preview)
+      calculatedHeight = Math.max(80, calculatedHeight - 40);
+      
+      // Ajuster object-position pour gérer le crop avec un meilleur centrage (même logique que la preview)
+      // Décaler la position Y de base de 70px vers le bas (20px + 50px)
+      const baseOffsetY = calculatedHeight > 0 ? (70 / calculatedHeight) * 100 : 0;
+      
+      // Extraire posY depuis objectPosition (identique à la preview qui utilise posYInput)
+      let posY = 50; // Valeur par défaut
+      const currentObjectPosition = styles.objectPosition || 'center';
+      const posYMatch = currentObjectPosition.match(/(\d+)%\s+(\d+)%/);
+      if (posYMatch) {
+        posY = parseFloat(posYMatch[2]);
+      } else if (currentObjectPosition.includes('top')) {
+        posY = 0;
+      } else if (currentObjectPosition.includes('bottom')) {
+        posY = 100;
+      }
+      
+      // Calculer adjustedPosY avec la même logique que la preview
+      let adjustedPosY = posY + baseOffsetY;
+      
+      // Ajuster object-position selon le crop avec meilleur centrage (identique à la preview)
+      if (cropTop > 0 && cropBottom === 0) {
+        const cropTopOffset = (cropTop / 100) * 100;
+        adjustedPosY = Math.min(100, adjustedPosY + cropTopOffset);
+      } else if (cropBottom > 0 && cropTop === 0) {
+        const cropBottomOffset = (cropBottom / 100) * 100;
+        adjustedPosY = Math.max(0, adjustedPosY - cropBottomOffset);
+      } else if (cropTop > 0 && cropBottom > 0) {
+        // Crop des deux côtés : centrer la partie visible restante (identique à la preview)
+        const centerOffset = (cropTop - cropBottom) / 2;
+        adjustedPosY = Math.max(0, Math.min(100, 50 + baseOffsetY + centerOffset));
+      }
+      
+      const finalHeight = calculatedHeight;
+      
+      // Appliquer la hauteur recalculée (identique à la preview)
+      container.style.height = `${finalHeight}px`;
+      container.style.transform = '';
+      
+      // Utiliser top au lieu de marginTop pour le positionnement vertical
+      // Convertir marginTop/top en top si présent, sinon utiliser 50px par défaut (identique à la preview)
+      let topValue = 50; // Valeur par défaut
+      if (imageStyles.containerMarginTop && imageStyles.containerMarginTop !== '0px') {
+        const marginTopMatch = imageStyles.containerMarginTop.match(/(\d+)px/);
+        if (marginTopMatch) {
+          topValue = parseFloat(marginTopMatch[1]);
+        }
+      }
+      container.style.top = `${topValue}px`;
+      
+      // Forcer la mise à jour du layout
+      container.offsetHeight; // Force reflow
+      
+      // Créer ou mettre à jour un élément spacer pour réserver l'espace dans le flux
+      let spacer = container.previousElementSibling;
+      if (!spacer || !spacer.classList.contains('product-image-spacer')) {
+        spacer = document.createElement('div');
+        spacer.className = 'product-image-spacer';
+        spacer.style.display = 'block';
+        spacer.style.width = '100%';
+        spacer.style.height = '0';
+        spacer.style.margin = '0';
+        spacer.style.padding = '0';
+        container.parentElement.insertBefore(spacer, container);
+      }
+      // Ajuster la hauteur du spacer pour réserver l'espace (hauteur + top)
+      spacer.style.height = `${finalHeight + topValue}px`;
+      
+      // Forcer un nouveau reflow après l'application du top
+      container.offsetHeight;
+      
+      // Appliquer les styles de l'image (identique à la preview)
+      image.style.width = `${widthPercent}%`;
+      image.style.height = `${heightPercent}%`;
+      const zoomFactor = zoom / 100;
+      // Appliquer le transform avec zoom (identique à la preview)
+      const transformMatch = styles.transform ? styles.transform.match(/rotate\((-?\d+)deg\)/) : null;
+      const rotation = transformMatch ? parseFloat(transformMatch[1]) : 0;
+      const scaleXMatch = styles.transform ? styles.transform.match(/scaleX\((-?\d+(?:\.\d+)?)\)/) : null;
+      const scaleYMatch = styles.transform ? styles.transform.match(/scaleY\((-?\d+(?:\.\d+)?)\)/) : null;
+      const currentScaleX = scaleXMatch ? parseFloat(scaleXMatch[1]) : 1;
+      const currentScaleY = scaleYMatch ? parseFloat(scaleYMatch[1]) : 1;
+      image.style.transform = `rotate(${rotation}deg) scaleX(${currentScaleX * zoomFactor}) scaleY(${currentScaleY * zoomFactor})`;
+      image.style.filter = styles.filter;
+      image.style.clipPath = 'none';
+      
+      // Appliquer object-position ajusté pour le crop (identique à la preview)
+      const posX = styles.objectPosition.match(/(\d+)%/)?.[1] || 50;
+      image.style.objectPosition = `${posX}% ${adjustedPosY}%`;
+      image.style.display = 'block';
+    } else if (container && imageStyles.containerHeight) {
+      // Fallback si pas d'image mais conteneur présent
+      // Rendre le conteneur flottant
+      container.style.position = 'absolute';
+      container.style.left = '0';
+      container.style.right = '0';
+      container.style.margin = '0';
+      container.style.top = '50px'; // Top de base de 50px
+      container.style.height = imageStyles.containerHeight + 'px';
+      container.style.minHeight = imageStyles.containerHeight + 'px';
+      container.style.maxHeight = imageStyles.containerHeight + 'px';
+      container.style.width = '100%';
+      container.offsetHeight;
+      if (imageStyles.containerMarginTop && imageStyles.containerMarginTop !== '0px') {
+        const marginTopMatch = imageStyles.containerMarginTop.match(/(\d+)px/);
+        if (marginTopMatch) {
+          container.style.top = marginTopMatch[1] + 'px';
+        } else {
+          container.style.top = imageStyles.containerMarginTop;
+        }
+      }
+      container.offsetHeight;
+    }
+  } catch (e) {
+    console.warn('⚠️ Impossible de réappliquer les styles d\'image:', e);
+  }
+}
+
+/**
+ * Applique les styles sauvegardés aux éléments du clone
+ */
+function applySavedStyles(clonedElement, savedSettings) {
+  // Couleurs de fond et texte
+  if (savedSettings.bgColor) {
+    clonedElement.style.background = savedSettings.bgColor;
+  }
+  if (savedSettings.textColor) {
+    clonedElement.style.color = savedSettings.textColor;
+  }
+  
+  // Header orange
+  const headerBand = clonedElement.querySelector('.header-orange-band');
+  if (headerBand && savedSettings.headerColor) {
+    headerBand.style.background = savedSettings.headerColor;
+  }
+  
+  // H2 - Premier et autres
+  const firstH2 = clonedElement.querySelector('h2:first-of-type');
+  const headerContentH2 = clonedElement.querySelector('.header-content + h2');
+  const firstH2MarginTop = savedSettings.firstH2MarginTop || '12px';
+  const sectionMargin = savedSettings.sectionMargin || '4px';
+  
+  [firstH2, headerContentH2].forEach(h2 => {
+    if (h2) {
+      h2.style.marginTop = firstH2MarginTop;
+      if (savedSettings.h2Size) h2.style.fontSize = savedSettings.h2Size;
+      if (savedSettings.h2Weight) h2.style.fontWeight = savedSettings.h2Weight;
+    }
+  });
+  
+  // Autres h2
+  const allH2 = clonedElement.querySelectorAll('h2');
+  allH2.forEach((h2, index) => {
+    if (index > 0) {
+      h2.style.margin = `${sectionMargin} 20px 6px 20px`;
+      if (savedSettings.h2Size) h2.style.fontSize = savedSettings.h2Size;
+      if (savedSettings.h2Weight) h2.style.fontWeight = savedSettings.h2Weight;
+    }
+  });
+  
+  // Typographie texte
+  const textElements = clonedElement.querySelectorAll('ul li');
+  textElements.forEach(el => {
+    if (savedSettings.textSize) el.style.fontSize = savedSettings.textSize;
+    if (savedSettings.textWeight) el.style.fontWeight = savedSettings.textWeight;
+  });
+  
+  // Strong
+  const strongElements = clonedElement.querySelectorAll('ul li strong');
+  strongElements.forEach(el => {
+    if (savedSettings.strongWeight) el.style.fontWeight = savedSettings.strongWeight;
+  });
+  
+  // Couleur d'accent
+  if (savedSettings.accentColor) {
+    const accentElements = clonedElement.querySelectorAll('ul li strong');
+    accentElements.forEach(el => {
+      el.style.color = savedSettings.accentColor;
+    });
+    
+    // Style pour les puces ::before
+    const style = document.createElement('style');
+    style.textContent = `#pdfPreview ul li::before { background: ${savedSettings.accentColor} !important; }`;
+    clonedElement.ownerDocument.head.appendChild(style);
+  }
+  
+  // Padding contenu
+  const contentPadding = savedSettings.contentPadding || '20px';
+  clonedElement.querySelectorAll('ul').forEach(el => {
+    el.style.marginLeft = contentPadding;
+    el.style.marginRight = contentPadding;
+  });
+  
+  // Footer
+  const footer = clonedElement.querySelector('.otera-footer');
+  if (footer) {
+    footer.style.textAlign = 'center';
+    footer.style.marginTop = 'auto';
+    footer.style.flexShrink = '0';
+    footer.style.minHeight = '50px';
+    footer.style.padding = `${savedSettings.footerPadding || '36px'} 20px`;
+  }
+}
+
+/**
+ * Configure les badges dans le clone
+ */
+function configureBadges(clonedElement) {
+  const badgeGroup = clonedElement.querySelector('.badge-group');
+  if (!badgeGroup) return;
+  
+  badgeGroup.style.position = 'absolute';
+  badgeGroup.style.display = 'flex';
+  badgeGroup.style.alignItems = 'flex-end';
+  badgeGroup.style.gap = '12px';
+  badgeGroup.style.margin = '0';
+  badgeGroup.style.padding = '0';
+  badgeGroup.style.zIndex = '100';
+  
+  const badges = badgeGroup.querySelectorAll('.badge-instance');
+  badges.forEach((badge, idx) => {
+    const layout = typeof BadgeManager !== 'undefined' && BadgeManager.getLayoutForIndex 
+      ? BadgeManager.getLayoutForIndex(idx)
+      : { xPercent: 3, yPercent: 0, heightPx: 80, colors: {} };
+    
+    badge.style.position = 'absolute';
+    badge.style.left = `${Utils.clamp(layout.xPercent, 0, 100)}%`;
+    badge.style.bottom = `${Utils.clamp(layout.yPercent, 0, 100)}%`;
+    badge.style.margin = '0';
+    badge.style.padding = '0';
+    badge.style.height = `${layout.heightPx}px`;
+    badge.style.maxWidth = '240px';
+    badge.style.objectFit = 'contain';
+    badge.style.zIndex = '100';
+  });
 }
 
 /**
@@ -111,59 +640,32 @@ async function downloadPDF() {
     downloadBtn.disabled = true;
     downloadBtn.innerHTML = '<span>⏳</span><span>Génération du PDF...</span>';
 
-    // Vérifier que les données sont toujours disponibles
+    // Vérifier que les données sont disponibles
     if (!window.currentPdfContent) {
-      // Essayer de recharger depuis sessionStorage
       const pdfContentStr = sessionStorage.getItem('pdfContent');
       if (pdfContentStr) {
         window.currentPdfContent = JSON.parse(pdfContentStr);
-        console.log('🔄 Données rechargées depuis sessionStorage pour PDF');
       } else {
         throw new Error('Données perdues. Veuillez régénérer la fiche.');
       }
     }
 
-    // Vérifier que le contenu HTML est correct dans le DOM
     const element = document.getElementById('pdfPreview');
     if (!element) {
       throw new Error('Élément pdfPreview non trouvé');
     }
     
+    // Vérifier le contenu HTML (régénérer seulement si vraiment vide)
     const htmlContent = element.innerHTML;
-    const mobile = Utils.isMobile();
-    console.log('📱 Mode mobile détecté:', mobile);
-    
-    console.log('📄 Vérification avant génération PDF:');
-    console.log('- Élément trouvé:', !!element);
-    console.log('- HTML contient "Caractéristiques":', htmlContent.includes('Caractéristiques'));
-    console.log('- Nombre de <li> dans caractéristiques:', (htmlContent.match(/<li><strong>.*?<\/strong> : .*?<\/li>/g) || []).length);
-    console.log('- Données originales disponibles:', !!window.currentPdfContent);
-    console.log('- Caractéristiques dans données:', window.currentPdfContent?.caracteristiques?.length || 0);
-
-    // NE PAS régénérer le HTML sauf en cas d'urgence absolue
-    // La régénération efface tous les styles inline appliqués avec les modals Figma
-    // Vérifier seulement si le HTML est vraiment vide ou complètement cassé
-    const hasContent = htmlContent.trim().length > 0;
-    const hasCharacteristics = htmlContent.includes('Caractéristiques') || 
-                              (htmlContent.match(/<li><strong>.*?<\/strong> : .*?<\/li>/g) || []).length > 0;
-    
-    if (!hasContent) {
-      // Seulement si le HTML est complètement vide, régénérer
-      console.warn('⚠️ HTML complètement vide, régénération nécessaire...');
+    if (!htmlContent.trim()) {
+      console.warn('⚠️ HTML vide, régénération nécessaire...');
       const html = generateHTML(window.currentPdfContent);
       element.innerHTML = html;
-      console.log('✅ HTML régénéré (mais tous les styles inline sont perdus)');
-    } else if (!hasCharacteristics && window.currentPdfContent?.caracteristiques?.length > 0) {
-      // Seulement si les caractéristiques sont vraiment manquantes ET qu'elles existent dans les données
-      console.warn('⚠️ Caractéristiques manquantes dans le HTML mais présentes dans les données');
-      // Ne pas régénérer automatiquement - cela effacerait les styles
-      // À la place, juste logger un avertissement
-      console.warn('⚠️ Les caractéristiques ne seront peut-être pas dans le PDF, mais les styles sont préservés');
     }
     
-    // Dimensions selon le format d'export si disponible
-    let a5Width = 559;   // px (148mm à 96 DPI) - A5 par défaut
-    let a5Height = 794;  // px (210mm à 96 DPI) - A5 par défaut
+    // Dimensions selon le format d'export
+    let a5Width = 559;
+    let a5Height = 794;
     
     if (window.getExportOptions && window.getDimensionsForFormat) {
       const exportOpts = window.getExportOptions();
@@ -172,141 +674,48 @@ async function downloadPDF() {
       a5Height = dims.height;
     }
     
-    // Sur mobile, on force les dimensions A5 pour la capture
-    // Sur desktop, on utilise les dimensions réelles mais limitées à A5
+    const mobile = Utils.isMobile();
     const elementWidth = mobile ? a5Width : Math.min(element.scrollWidth || a5Width, a5Width);
     const elementHeight = element.scrollHeight || a5Height;
     
-    // Scale adapté selon la qualité d'export si disponible
+    // Scale selon la qualité
     let scale = mobile ? 2 : 3;
     if (window.getExportOptions && window.getScaleForQuality) {
       const exportOpts = window.getExportOptions();
       scale = window.getScaleForQuality(exportOpts.quality);
     }
     
-    console.log('📐 Dimensions:', {
-      mobile,
-      elementWidth,
-      elementHeight,
-      scale,
-      a5Width,
-      a5Height,
-      scrollWidth: element.scrollWidth,
-      scrollHeight: element.scrollHeight
-    });
-
-    // Préparer toutes les images avant la capture (conversion en data URI)
-    // Cela inclut les badges avec leurs couleurs modifiées
+    // Préparer toutes les images
     await prepareImagesForCanvas(element);
     
-    // S'assurer que les badges avec couleurs modifiées sont bien convertis
-    // Les badges avec couleurs modifiées utilisent déjà des data URI, mais vérifions
-    const badgeImgs = element.querySelectorAll('.badge-instance');
-    for (const badgeImg of badgeImgs) {
-      const imgSrc = badgeImg.currentSrc || badgeImg.src || '';
-      // Si c'est une blob URL, la convertir en data URI
-      if (imgSrc.startsWith('blob:')) {
-        try {
-          const response = await fetch(imgSrc);
-          const blob = await response.blob();
-          const reader = new FileReader();
-          const dataUri = await new Promise((resolve, reject) => {
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-          badgeImg.src = dataUri;
-          console.log('✅ Badge blob converti en data URI pour PDF:', badgeImg.alt || 'sans alt');
-        } catch (err) {
-          console.warn('⚠️ Erreur conversion badge blob pour PDF:', err);
-        }
-      } else if (imgSrc.startsWith('http') && !imgSrc.startsWith('data:')) {
-        try {
-          const dataUri = await convertImageToDataURI(badgeImg);
-          if (dataUri) {
-            badgeImg.src = dataUri;
-            console.log('✅ Badge HTTP converti en data URI pour PDF:', badgeImg.alt || 'sans alt');
-          }
-        } catch (err) {
-          console.warn('⚠️ Erreur conversion badge HTTP pour PDF:', err);
-        }
-      }
-    }
+    // MODE TEST : Utiliser les dimensions exactes de l'élément pour garantir un rendu identique
+    const actualElementWidth = element.offsetWidth || element.clientWidth || a5Width;
+    const actualElementHeight = element.scrollHeight || element.offsetHeight || elementHeight;
     
-    // Attendre un peu pour que les images soient bien chargées
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    // Capture avec html2canvas - Dimensions selon le format sélectionné
+    // Capture avec html2canvas
+    // IMPORTANT : Configuration pour préserver les proportions des images
     const canvas = await html2canvas(element, {
       scale: scale,
       useCORS: true,
+      allowTaint: false, // Éviter les problèmes de sécurité qui pourraient déformer les images
       logging: false,
-      backgroundColor: '#F6E2BE', // Fond beige Otera identité
-      width: a5Width,  // Largeur selon format (A5: 559px, A4: 794px, custom: selon dimensions)
-      height: elementHeight, // Hauteur dynamique selon le contenu
-      windowWidth: a5Width,
-      windowHeight: elementHeight,
+      backgroundColor: '#F6E2BE',
+      width: actualElementWidth,
+      height: actualElementHeight,
+      windowWidth: actualElementWidth,
+      windowHeight: actualElementHeight,
       x: 0,
       y: 0,
+      // Préserver les proportions des images
+      imageTimeout: 15000,
+      removeContainer: false,
       onclone: async (clonedDoc) => {
-        // Forcer des dimensions exactes dans le clone pour cohérence
         const clonedElement = clonedDoc.getElementById('pdfPreview');
         const originalElement = document.getElementById('pdfPreview');
         
-        if (clonedElement && originalElement) {
-          // Copier tous les styles inline de l'élément original vers le clone
-          // Cela préserve tous les changements faits avec les modals Figma
-          function copyInlineStyles(source, target) {
-            if (!source || !target) return;
-            
-            // Copier les styles inline de l'élément
-            if (source.style && source.style.cssText) {
-              target.style.cssText = source.style.cssText;
-            }
-            
-            // Copier récursivement pour tous les enfants
-            const sourceChildren = source.children || [];
-            const targetChildren = target.children || [];
-            
-            for (let i = 0; i < Math.min(sourceChildren.length, targetChildren.length); i++) {
-              copyInlineStyles(sourceChildren[i], targetChildren[i]);
-            }
-            
-            // Copier aussi pour les nodes (pour capturer les text nodes si nécessaire)
-            const sourceNodes = source.childNodes || [];
-            const targetNodes = target.childNodes || [];
-            
-            for (let i = 0; i < Math.min(sourceNodes.length, targetNodes.length); i++) {
-              if (sourceNodes[i].nodeType === 1 && targetNodes[i].nodeType === 1) { // Element nodes
-                copyInlineStyles(sourceNodes[i], targetNodes[i]);
-              }
-            }
-          }
-
-          // ❌ On ne recalcule plus un crop bitmap spécifique pour le PDF.
-          //    html2canvas capture désormais l'image telle qu'elle apparaît en preview
-          //    (width/height %, zoom, object-fit, object-position, hauteur du conteneur, etc.)
-          //    afin que le rendu PDF soit le plus fidèle possible à la preview.
-
-          // ✅ Forcer le conteneur d'image produit dans le clone à garder
-          //    exactement la même hauteur que dans la preview pour éviter
-          //    tout effet d'image "aplatît" dû à des différences de ratio.
-          try {
-            const originalImageContainer = originalElement.querySelector('.product-image-container');
-            const clonedImageContainer = clonedElement.querySelector('.product-image-container');
-            if (originalImageContainer && clonedImageContainer) {
-              const originalHeight = originalImageContainer.clientHeight || originalImageContainer.offsetHeight;
-              if (originalHeight && isFinite(originalHeight)) {
-                clonedImageContainer.style.height = originalHeight + 'px';
-                clonedImageContainer.style.minHeight = originalHeight + 'px';
-                clonedImageContainer.style.maxHeight = originalHeight + 'px';
-              }
-            }
-          } catch (e) {
-            console.warn('⚠️ Impossible de synchroniser la hauteur du conteneur d\'image pour le PDF:', e);
-          }
-
-          // Masquer la grille et les guides si nécessaire
+        if (!clonedElement || !originalElement) return;
+        
+        // Masquer grille et guides si nécessaire
           if (window.getExportOptions) {
             const exportOpts = window.getExportOptions();
             if (!exportOpts.includeGrid) {
@@ -320,104 +729,62 @@ async function downloadPDF() {
             }
           }
           
-          // Forcer exactement les dimensions (selon le format)
-          clonedElement.style.width = a5Width + 'px';
-          clonedElement.style.height = 'auto';
-          clonedElement.style.maxWidth = a5Width + 'px';
-          clonedElement.style.minWidth = a5Width + 'px';
-          clonedElement.style.maxHeight = a5Height + 'px';
-          clonedElement.style.minHeight = a5Height + 'px';
-          clonedElement.style.height = 'auto';
-          clonedElement.style.padding = '0';
-          clonedElement.style.overflow = 'visible'; // Important : visible pour que le header orange qui sort soit capturé
-          clonedElement.style.margin = '0';
-          clonedElement.style.position = 'relative';
-          clonedElement.style.boxSizing = 'border-box';
-          clonedElement.style.borderRadius = '8px'; // Garder les arrondis comme dans la preview
-          clonedElement.style.background = '#F6E2BE'; // Fond beige
+        // MODE TEST : Utiliser les dimensions exactes de l'original pour garantir un rendu identique
+        const originalWidth = originalElement.offsetWidth || originalElement.clientWidth || a5Width;
+        const originalScrollHeight = originalElement.scrollHeight || originalElement.offsetHeight || a5Height;
+        const fixedHeight = Math.max(originalScrollHeight, a5Height);
+        
+        // Configurer les dimensions du clone avec les dimensions exactes de l'original
+        // IMPORTANT : Utiliser la largeur de l'original pour que les typographies soient identiques
+        clonedElement.style.width = originalWidth + 'px';
+        clonedElement.style.maxWidth = originalWidth + 'px';
+        clonedElement.style.minWidth = originalWidth + 'px';
+        clonedElement.style.padding = '0';
+        clonedElement.style.margin = '0';
+        clonedElement.style.position = 'relative';
+        clonedElement.style.boxSizing = 'border-box';
+        clonedElement.style.display = 'flex';
+        clonedElement.style.flexDirection = 'column';
+        clonedElement.style.alignItems = 'stretch';
+        clonedElement.style.justifyContent = 'flex-start';
+        
+        // Forcer un reflow pour que la largeur soit calculée AVANT reapplyImageStyles
+        clonedElement.offsetWidth;
+        
+        // Ensuite appliquer la hauteur
+        clonedElement.style.height = fixedHeight + 'px';
+        clonedElement.style.maxHeight = fixedHeight + 'px';
+        clonedElement.style.minHeight = fixedHeight + 'px';
+        clonedElement.style.overflow = 'visible';
+        clonedElement.style.borderRadius = '8px';
+        clonedElement.style.background = '#F6E2BE';
           
-          // S'assurer que le contenu est bien aligné
-          clonedElement.style.display = 'flex';
-          clonedElement.style.flexDirection = 'column';
-          clonedElement.style.alignItems = 'stretch';
-          clonedElement.style.justifyContent = 'flex-start';
-          
-          // Récupérer les paramètres sauvegardés une seule fois
+        // Récupérer les paramètres sauvegardés
           const savedSettings = typeof getSavedSettings === 'function' ? getSavedSettings() : {};
           
-          // Appliquer la couleur de fond sauvegardée
-          if (savedSettings.bgColor) {
-            clonedElement.style.background = savedSettings.bgColor;
-          }
+        // Capturer les styles critiques de l'image AVANT copyInlineStyles
+        const imageStyles = captureImageStyles(originalElement);
           
-          // Appliquer la couleur de texte sauvegardée
-          if (savedSettings.textColor) {
-            clonedElement.style.color = savedSettings.textColor;
-          }
-          
-          // Copier les styles inline de tous les éléments pour préserver l'apparence exacte
+        // Copier les styles inline (le conteneur d'image est exclu automatiquement)
           copyInlineStyles(originalElement, clonedElement);
           
-          // S'assurer que le header orange garde sa rotation et son positionnement
+        // Réappliquer les styles critiques de l'image
+        await reapplyImageStyles(clonedElement, imageStyles);
+        
+        // Copier les styles du header orange et header-content
           const headerBand = clonedElement.querySelector('.header-orange-band');
           const originalHeaderBand = originalElement.querySelector('.header-orange-band');
           if (headerBand && originalHeaderBand) {
-            // Copier tous les styles inline du header orange original
             copyInlineStyles(originalHeaderBand, headerBand);
-            
-            // Appliquer la couleur de header sauvegardée si elle existe
-            if (savedSettings.headerColor) {
-              headerBand.style.background = savedSettings.headerColor;
-            }
           }
           
-          // S'assurer que le header-content garde son positionnement exact
           const headerContent = clonedElement.querySelector('.header-orange-band .header-content');
           const originalHeaderContent = originalElement.querySelector('.header-orange-band .header-content');
           if (headerContent && originalHeaderContent) {
-            // Copier tous les styles inline du header-content original
             copyInlineStyles(originalHeaderContent, headerContent);
           }
           
-          // S'assurer que le badge (image) est bien positionné en bas à gauche
-          const badgeGroup = clonedElement.querySelector('.badge-group');
-          if (badgeGroup) {
-            badgeGroup.style.position = 'absolute';
-            badgeGroup.style.display = 'flex';
-            badgeGroup.style.alignItems = 'flex-end';
-            badgeGroup.style.gap = '12px';
-            badgeGroup.style.margin = '0';
-            badgeGroup.style.padding = '0';
-            badgeGroup.style.zIndex = '100';
-            
-            // Appliquer les layouts badges stockés avec les couleurs
-            const badges = badgeGroup.querySelectorAll('.badge-instance');
-            badges.forEach((badge, idx) => {
-              const layout = typeof BadgeManager !== 'undefined' && BadgeManager.getLayoutForIndex 
-                ? BadgeManager.getLayoutForIndex(idx)
-                : { xPercent: 3, yPercent: 0, heightPx: 80, colors: {} };
-              badge.style.position = 'absolute';
-              badge.style.left = `${Utils.clamp(layout.xPercent, 0, 100)}%`;
-              badge.style.bottom = `${Utils.clamp(layout.yPercent, 0, 100)}%`;
-              badge.style.margin = '0';
-              badge.style.padding = '0';
-              badge.style.height = `${layout.heightPx}px`;
-              badge.style.maxWidth = '240px';
-              badge.style.objectFit = 'contain';
-              badge.style.zIndex = '100';
-              
-              // Les couleurs sont déjà appliquées dans le src (data URI) de l'image originale
-              // Le clone hérite automatiquement du src avec les couleurs modifiées
-              // S'assurer que l'image est bien en data URI
-              if (badge.src && !badge.src.startsWith('data:')) {
-                // Si l'image n'est pas encore en data URI, essayer de la convertir
-                // (normalement cela devrait déjà être fait par prepareImagesForCanvas)
-                console.warn('⚠️ Badge pas encore en data URI dans le clone:', badge.src);
-              }
-            });
-          }
-          
-          // Copier les styles inline du h1 et slogan pour préserver leur apparence exacte
+        // Copier les styles du h1 et slogan
           const h1 = clonedElement.querySelector('.header-orange-band .header-content h1');
           const originalH1 = originalElement.querySelector('.header-orange-band .header-content h1');
           if (h1 && originalH1) {
@@ -430,122 +797,79 @@ async function downloadPDF() {
             copyInlineStyles(originalSlogan, slogan);
           }
           
-          // Appliquer les espacements sauvegardés pour les h2
+        // Configurer les badges
+        configureBadges(clonedElement);
+        
+        // Appliquer les styles sauvegardés
+        applySavedStyles(clonedElement, savedSettings);
+        
+        // Deuxième copie des styles inline (pour préserver tous les changements)
+        // IMPORTANT : Sauvegarder les styles du conteneur d'image avant copyInlineStyles
+        const containerBeforeCopy = clonedElement.querySelector('.product-image-container');
+        const imageBeforeCopy = containerBeforeCopy?.querySelector('img');
+        const savedContainerStyles = containerBeforeCopy ? {
+          height: containerBeforeCopy.style.height,
+          top: containerBeforeCopy.style.top,
+          position: containerBeforeCopy.style.position,
+          left: containerBeforeCopy.style.left,
+          right: containerBeforeCopy.style.right,
+          margin: containerBeforeCopy.style.margin,
+          minHeight: containerBeforeCopy.style.minHeight,
+          maxHeight: containerBeforeCopy.style.maxHeight,
+          width: containerBeforeCopy.style.width,
+          transform: containerBeforeCopy.style.transform,
+          display: containerBeforeCopy.style.display
+        } : null;
+        const savedImageStyles = imageBeforeCopy ? {
+          width: imageBeforeCopy.style.width,
+          height: imageBeforeCopy.style.height,
+          transform: imageBeforeCopy.style.transform,
+          filter: imageBeforeCopy.style.filter,
+          objectFit: imageBeforeCopy.style.objectFit,
+          objectPosition: imageBeforeCopy.style.objectPosition,
+          clipPath: imageBeforeCopy.style.clipPath,
+          display: imageBeforeCopy.style.display
+        } : null;
+        
+        copyInlineStyles(originalElement, clonedElement);
+        
+        // Restaurer les styles du conteneur d'image après copyInlineStyles pour éviter qu'ils soient écrasés
+        if (containerBeforeCopy && savedContainerStyles) {
+          if (savedContainerStyles.height) containerBeforeCopy.style.height = savedContainerStyles.height;
+          if (savedContainerStyles.top) containerBeforeCopy.style.top = savedContainerStyles.top;
+          if (savedContainerStyles.position) containerBeforeCopy.style.position = savedContainerStyles.position;
+          if (savedContainerStyles.left) containerBeforeCopy.style.left = savedContainerStyles.left;
+          if (savedContainerStyles.right) containerBeforeCopy.style.right = savedContainerStyles.right;
+          if (savedContainerStyles.margin) containerBeforeCopy.style.margin = savedContainerStyles.margin;
+          if (savedContainerStyles.minHeight) containerBeforeCopy.style.minHeight = savedContainerStyles.minHeight;
+          if (savedContainerStyles.maxHeight) containerBeforeCopy.style.maxHeight = savedContainerStyles.maxHeight;
+          if (savedContainerStyles.width) containerBeforeCopy.style.width = savedContainerStyles.width;
+          if (savedContainerStyles.transform) containerBeforeCopy.style.transform = savedContainerStyles.transform;
+          if (savedContainerStyles.display) containerBeforeCopy.style.display = savedContainerStyles.display;
+        }
+        
+        // Restaurer les styles de l'image après copyInlineStyles
+        if (imageBeforeCopy && savedImageStyles) {
+          if (savedImageStyles.width) imageBeforeCopy.style.width = savedImageStyles.width;
+          if (savedImageStyles.height) imageBeforeCopy.style.height = savedImageStyles.height;
+          if (savedImageStyles.transform) imageBeforeCopy.style.transform = savedImageStyles.transform;
+          if (savedImageStyles.filter) imageBeforeCopy.style.filter = savedImageStyles.filter;
+          if (savedImageStyles.objectFit) imageBeforeCopy.style.objectFit = savedImageStyles.objectFit;
+          if (savedImageStyles.objectPosition) imageBeforeCopy.style.objectPosition = savedImageStyles.objectPosition;
+          if (savedImageStyles.clipPath) imageBeforeCopy.style.clipPath = savedImageStyles.clipPath;
+          if (savedImageStyles.display) imageBeforeCopy.style.display = savedImageStyles.display;
+        }
+        
+        // Réappliquer les styles critiques de l'image après le deuxième copyInlineStyles
+        await reapplyImageStyles(clonedElement, imageStyles);
           
-          // Premier h2 - Centrage content
-          const firstH2 = clonedElement.querySelector('h2:first-of-type');
-          const headerContentH2 = clonedElement.querySelector('.header-content + h2');
-          const firstH2MarginTop = savedSettings.firstH2MarginTop || '12px';
-          if (firstH2) {
-            firstH2.style.marginTop = firstH2MarginTop;
-            // Appliquer la taille et le poids sauvegardés
-            if (savedSettings.h2Size) {
-              firstH2.style.fontSize = savedSettings.h2Size;
-            }
-            if (savedSettings.h2Weight) {
-              firstH2.style.fontWeight = savedSettings.h2Weight;
-            }
-          }
-          if (headerContentH2) {
-            headerContentH2.style.marginTop = firstH2MarginTop;
-            if (savedSettings.h2Size) {
-              headerContentH2.style.fontSize = savedSettings.h2Size;
-            }
-            if (savedSettings.h2Weight) {
-              headerContentH2.style.fontWeight = savedSettings.h2Weight;
-            }
-          }
-          
-          // Autres h2 - Marge sections
-          const allH2 = clonedElement.querySelectorAll('h2');
-          const sectionMargin = savedSettings.sectionMargin || '4px';
-          allH2.forEach((h2, index) => {
-            if (index > 0) {
-              h2.style.margin = `${sectionMargin} 20px 6px 20px`;
-              // Appliquer la taille et le poids sauvegardés
-              if (savedSettings.h2Size) {
-                h2.style.fontSize = savedSettings.h2Size;
-              }
-              if (savedSettings.h2Weight) {
-                h2.style.fontWeight = savedSettings.h2Weight;
-              }
-            }
-          });
-          
-          // Appliquer les styles de typographie au texte (li, recipe p, recipe em)
-          const textElements = clonedElement.querySelectorAll('ul li, .recipe p, .recipe em');
-          textElements.forEach(el => {
-            if (savedSettings.textSize) {
-              el.style.fontSize = savedSettings.textSize;
-            }
-            if (savedSettings.textWeight) {
-              el.style.fontWeight = savedSettings.textWeight;
-            }
-          });
-          
-          // Appliquer les styles aux strong
-          const strongElements = clonedElement.querySelectorAll('ul li strong');
-          strongElements.forEach(el => {
-            if (savedSettings.strongWeight) {
-              el.style.fontWeight = savedSettings.strongWeight;
-            }
-          });
-          
-          // Appliquer la couleur d'accent
-          if (savedSettings.accentColor) {
-            const accentElements = clonedElement.querySelectorAll('ul li strong, .recipe strong, .recipe p strong');
-            accentElements.forEach(el => {
-              el.style.color = savedSettings.accentColor;
-            });
-            // Pour les puces ::before, créer un style dans le head du clone
-            const style = clonedDoc.createElement('style');
-            style.textContent = `
-              #pdfPreview ul li::before {
-                background: ${savedSettings.accentColor} !important;
-              }
-            `;
-            clonedDoc.head.appendChild(style);
-            // Appliquer aussi aux bordures des recettes
-            const recipes = clonedElement.querySelectorAll('.recipe');
-            recipes.forEach(recipe => {
-              recipe.style.borderLeftColor = savedSettings.accentColor;
-            });
-          }
-          
-          // Padding contenu (ul et .recipe)
-          const contentPadding = savedSettings.contentPadding || '20px';
-          const uls = clonedElement.querySelectorAll('ul');
-          const recipes = clonedElement.querySelectorAll('.recipe');
-          [...uls, ...recipes].forEach(el => {
-            el.style.marginLeft = contentPadding;
-            el.style.marginRight = contentPadding;
-          });
-          
-          // Footer centré - S'assurer qu'il est visible avec le padding sauvegardé
-          const footer = clonedElement.querySelector('.otera-footer');
-          if (footer) {
-            footer.style.textAlign = 'center';
-            footer.style.marginTop = 'auto';
-            footer.style.flexShrink = '0';
-            footer.style.minHeight = '50px';
-            const footerPadding = savedSettings.footerPadding || '36px';
-            footer.style.padding = `${footerPadding} 20px`;
-          }
-          
-          // IMPORTANT: Copier TOUS les styles inline de l'original vers le clone APRÈS toutes les autres modifications
-          // Cela préserve tous les changements faits avec les modals Figma (couleurs, tailles, paddings, etc.)
-          copyInlineStyles(originalElement, clonedElement);
-          console.log('✅ Styles inline copiés depuis l\'original vers le clone pour le PDF');
-          
-          // Réappliquer quelques styles spécifiques pour le PDF qui doivent prévaloir sur les styles inline
-          // (comme border-radius: 0 pour le PDF)
+        // Styles finaux pour le PDF
           clonedElement.style.borderRadius = '0';
           const headerBandAfter = clonedElement.querySelector('.header-orange-band');
           if (headerBandAfter) {
             headerBandAfter.style.borderRadius = '0';
             headerBandAfter.style.borderTopLeftRadius = '0';
             headerBandAfter.style.borderTopRightRadius = '0';
-          }
         }
       }
     });
@@ -553,10 +877,10 @@ async function downloadPDF() {
     const imgData = canvas.toDataURL('image/png', 0.95);
     const { jsPDF } = window.jspdf;
 
-    // Déterminer le format jsPDF selon les options d'export
-    let jsPdfFormat = 'a5'; // par défaut
-    let pdfWidth = 148; // A5 en mm
-    let pdfHeight = 210; // A5 en mm
+    // Déterminer le format jsPDF
+    let jsPdfFormat = 'a5';
+    let pdfWidth = 148;
+    let pdfHeight = 210;
     let isCustomFormat = false;
     
     if (window.getExportOptions) {
@@ -573,7 +897,6 @@ async function downloadPDF() {
           pdfHeight = 297;
           break;
         case 'custom':
-          // Pour format personnalisé, convertir px en mm (1px = 0.264583mm à 96 DPI)
           pdfWidth = exportOpts.customWidth * 0.264583;
           pdfHeight = exportOpts.customHeight * 0.264583;
           isCustomFormat = true;
@@ -590,20 +913,14 @@ async function downloadPDF() {
 
     const actualWidth = canvas.width / scale;
     const actualHeight = canvas.height / scale;
-
     const pxToMm = 25.4 / 96;
     const imgWidthMm = actualWidth * pxToMm;
     const imgHeightMm = actualHeight * pxToMm;
-
     const ratio = pdfWidth / imgWidthMm;
     const renderWidth = pdfWidth;
     const renderHeight = imgHeightMm * ratio;
-
     const offsetX = 0;
-    let offsetY = 0;
-    if (renderHeight < pdfHeight) {
-      offsetY = (pdfHeight - renderHeight) / 2;
-    }
+    const offsetY = renderHeight < pdfHeight ? (pdfHeight - renderHeight) / 2 : 0;
 
     pdf.addImage(imgData, 'PNG', offsetX, offsetY, renderWidth, renderHeight, '', 'FAST');
 
@@ -624,5 +941,5 @@ async function downloadPDF() {
 }
 
 window.downloadPDF = downloadPDF;
+window.convertImageToDataURI = convertImageToDataURI;
 window.convertImageToBase64OnLoad = convertImageToBase64OnLoad;
-

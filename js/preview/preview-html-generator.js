@@ -16,7 +16,7 @@ function generateHTML(pdfContent) {
     throw new Error('Données invalides pour la génération HTML');
   }
   
-  const { titre, sousTitre, slogan, caracteristiques, consommation, recettes } = pdfContent;
+  const { titre, sousTitre, slogan, caracteristiques, consommation } = pdfContent;
 
   // Déterminer les badges sélectionnés (multi)
   // Priorité : badges stockés dans sessionStorage (sélection explicite de l'utilisateur)
@@ -83,27 +83,6 @@ function generateHTML(pdfContent) {
     ? consoArray.map(s => `<li>${Utils.escapeHtml(s)}</li>`).join('')
     : '<li>Aucune suggestion disponible</li>';
 
-  // Recettes
-  const recettesArray = Array.isArray(recettes) ? recettes : [];
-  const recettesHtml = recettesArray.length > 0
-    ? recettesArray.map(r => {
-        const emoji = r.type === 'Sucrée' ? '🍰' : '🍽';
-        const nom = Utils.escapeHtml(r.nom || 'Recette');
-        const ingredients = Utils.escapeHtml(r.ingredients || '');
-        const astuce = Utils.escapeHtml(r.astuce || '');
-        return `
-          <div class="recipe">
-            <strong>${emoji} Recette ${Utils.escapeHtml(r.type || '')} : ${nom}</strong>
-            <p class="recipe-ingredients">
-              <strong>Ingrédients :</strong>
-              <span class="ingredients-content">${ingredients}</span>
-            </p>
-            <em>💡 Astuce : ${astuce}</em>
-          </div>
-        `;
-      }).join('')
-    : '<p>Aucune recette disponible</p>';
-
   // Retour avec footer Otera - Identité visuelle
   const finalHtml = `
     <div id="headerOrangeBand" class="header-orange-band">
@@ -125,9 +104,6 @@ function generateHTML(pdfContent) {
     
     <h2 id="sectionConsommation" data-section="consommation" data-editable="section" data-editable-type="section"><span class="emoji">🍴</span> 3 Façons de le Consommer</h2>
     <ul id="listConsommation" data-section-content="consommation">${consoHtml}</ul>
-    
-    <h2 id="sectionRecettes" data-section="recettes" data-editable="section" data-editable-type="section"><span class="emoji">👨‍🍳</span> Idées Recettes</h2>
-    <div id="contentRecettes" data-section-content="recettes">${recettesHtml}</div>
     
     <div id="oteraFooter" class="otera-footer">
     </div>
