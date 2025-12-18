@@ -16,10 +16,6 @@ function loadPreview() {
     }
 
     const pdfContent = JSON.parse(pdfContentStr);
-    console.log('📦 Données parsées depuis sessionStorage:', pdfContent);
-    console.log('🌿 Caractéristiques dans sessionStorage:', pdfContent.caracteristiques);
-    console.log('🌿 Type caractéristiques:', Array.isArray(pdfContent.caracteristiques) ? 'Array' : typeof pdfContent.caracteristiques);
-    console.log('🌿 Nombre de caractéristiques:', pdfContent.caracteristiques?.length || 0);
     
     // Vérifier la structure des données
     if (!pdfContent.caracteristiques) {
@@ -48,13 +44,13 @@ function loadPreview() {
     window.currentPdfContent = pdfContent;
     window.currentProductName = productName;
 
-    // Ne pas utiliser automatiquement le badge du contenu PDF
-    // Seulement utiliser le badge si l'utilisateur l'a explicitement sélectionné
+    // Utiliser les badges stockés dans sessionStorage si disponibles (sélection utilisateur)
+    // Sinon, les badges du serveur seront utilisés par generateHTML()
     const storedBadgeName = sessionStorage.getItem('badgeName');
     const storedBadgeNames = sessionStorage.getItem('badgeNames');
     
     if (storedBadgeName || storedBadgeNames) {
-      // Utiliser les badges stockés
+      // Utiliser les badges stockés (priorité sur les badges du serveur)
       if (storedBadgeName) {
         window.currentPdfContent.badge = storedBadgeName;
       }
@@ -66,23 +62,12 @@ function loadPreview() {
           }
         } catch (e) {}
       }
-    } else {
-      // Supprimer tous les badges du contenu PDF s'il n'y a pas de sélection explicite
-      // pour éviter l'affichage automatique de badges comme "Circuit court"
-      delete window.currentPdfContent.badge;
-      delete window.currentPdfContent.badgeName;
-      delete window.currentPdfContent.atout;
-      delete window.currentPdfContent.atoutName;
-      delete window.currentPdfContent.badgeSlug;
-      delete window.currentPdfContent.badge_slug;
-      delete window.currentPdfContent.badges; // Supprimer aussi le tableau de badges
     }
+    // Sinon, les badges du serveur (pdfContent.badge, pdfContent.badges, etc.) seront utilisés automatiquement par generateHTML()
 
-    // Générer le HTML avec les données modifiées (sans badges automatiques)
+    // Générer le HTML avec les données (badges du serveur si pas de sélection utilisateur)
     const html = generateHTML(window.currentPdfContent);
     
-    console.log('✅ HTML généré, longueur:', html.length);
-    console.log('✅ Caractéristiques dans HTML:', html.includes('Caractéristiques'));
 
     // Afficher
     displayPreview(html, productName);

@@ -15,6 +15,7 @@ const pageTitle = document.getElementById('pageTitle');
 // Callback de sélection badges (depuis BadgeManager)
 function onBadgeSelectionChange(selected) {
   const names = Array.isArray(selected) ? selected : [];
+  
   if (names.length > 0) {
     sessionStorage.setItem('badgeNames', JSON.stringify(names));
     sessionStorage.setItem('badgeName', names[0]); // compat
@@ -22,15 +23,24 @@ function onBadgeSelectionChange(selected) {
     sessionStorage.removeItem('badgeNames');
     sessionStorage.removeItem('badgeName');
   }
+  
   // Mettre à jour le compteur
   if (BadgeManager && BadgeManager.updateBadgeCount) {
     BadgeManager.updateBadgeCount(names.length);
   }
+  
+  // Régénérer la preview avec les nouveaux badges
   if (window.currentPdfContent) {
     window.currentPdfContent.badge = names[0] || '';
     window.currentPdfContent.badges = names;
-    const html = generateHTML(window.currentPdfContent);
-    displayPreview(html, window.currentProductName || '');
+    
+    if (typeof generateHTML === 'function') {
+      const html = generateHTML(window.currentPdfContent);
+      
+      if (typeof displayPreview === 'function') {
+        displayPreview(html, window.currentProductName || '');
+      }
+    }
   }
 }
 
@@ -44,6 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadPreview();
   setupEventListeners();
   setupDrawer();
+  
   if (typeof BadgeManager !== 'undefined') {
     BadgeManager.loadBadges(onBadgeSelectionChange);
     if (typeof initBadgeLayoutControls === 'function') {
@@ -163,10 +174,10 @@ function setupDrawer() {
 // ========================================
 // INITIALISATION LAYOUT BADGES
 // ========================================
-function initBadgeLayoutControls() {
+async function initBadgeLayoutControls() {
   if (typeof BadgeManager !== 'undefined') {
     const badgeNames = getBadgeNamesArray();
-    BadgeManager.renderLayoutControls(badgeNames, pdfPreview);
+    await BadgeManager.renderLayoutControls(badgeNames, pdfPreview);
     BadgeManager.applyLayouts(pdfPreview);
   }
 }

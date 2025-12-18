@@ -216,7 +216,25 @@ async function fetchBadgeList() {
       throw new Error(`Erreur HTTP ${response.status}`);
     }
 
-    let data = await response.json();
+    // Récupérer le texte brut d'abord pour debug
+    const responseText = await response.text();
+    const contentType = response.headers.get('content-type') || 'unknown';
+    
+    // Vérifier si c'est du SVG/XML
+    if (responseText.trim().startsWith('<') || contentType.includes('svg') || contentType.includes('xml')) {
+      console.warn('⚠️ fetchBadgeList - La réponse est du SVG/XML, pas du JSON. Le webhook devrait retourner une liste JSON des badges.');
+      return [];
+    }
+
+    // Essayer de parser en JSON
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('❌ fetchBadgeList - Erreur de parsing JSON:', parseError);
+      console.error('📄 Contenu reçu (premiers 500 caractères):', responseText.substring(0, 500));
+      throw new Error('La réponse n\'est pas du JSON valide');
+    }
 
     // n8n peut renvoyer différents formats : tableau direct, tableau avec json, ou objet
     if (Array.isArray(data) && data.length > 0 && data[0].json) {
@@ -260,6 +278,7 @@ async function fetchBadgeList() {
   } catch (error) {
     clearTimeout(timeoutId);
     console.error('❌ Erreur dans fetchBadgeList:', error);
+    console.error('❌ URL utilisée:', CONFIG?.N8N_BADGE_LIST_URL);
     return [];
   }
 }

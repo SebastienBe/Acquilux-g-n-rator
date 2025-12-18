@@ -343,13 +343,6 @@
     pdfPreview.style.setProperty('max-height', dims.height + 'px', 'important');
     pdfPreview.style.setProperty('min-height', dims.height + 'px', 'important');
     
-    console.log('📐 Preview dimensions mises à jour:', {
-      format: exportOptions.format,
-      width: dims.width + 'px',
-      height: dims.height + 'px',
-      element: pdfPreview
-    });
-    
     // Retirer la transition après l'animation pour éviter les transitions non désirées
     setTimeout(() => {
       pdfPreview.style.transition = '';

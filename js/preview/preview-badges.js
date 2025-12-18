@@ -1,14 +1,52 @@
 // ========================================
-// MODULE BADGES (sélection, layouts, drag)
+// MODULE GESTION DES ATOUTS/BADGES
 // ========================================
 (function () {
+  'use strict';
+
   const badgeChoicesContainer = document.getElementById('badgeChoices');
   const badgeLayoutContainer = document.getElementById('badgeLayoutContainer');
   const DEFAULT_HEIGHT = 80;
+  
+  // Couleurs disponibles pour les badges
+  const AVAILABLE_COLORS = {
+    orange: '#E65B0C', // Orange actuel
+    beige: '#F6E2BE',  // Beige du background
+    blue: '#B5DBE8',   // Bleu clair
+    darkRed: '#60191A' // Rouge foncé
+  };
 
-  let isDraggingBadge = false;
-  let dragOffset = { x: 0, y: 0, badgeIndex: 0 };
+  // ========================================
+  // FONCTIONS UTILITAIRES
+  // ========================================
 
+  /**
+   * Récupère les badges sélectionnés depuis sessionStorage
+   * @returns {Array<string>} Tableau des noms de badges
+   */
+  function getBadgeNamesArray() {
+    const stored = sessionStorage.getItem('badgeNames');
+    
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch (e) {
+        console.error('❌ Erreur lors du parsing des badges:', e);
+      }
+    }
+    
+    const single = sessionStorage.getItem('badgeName');
+    return single ? [single] : [];
+  }
+
+  /**
+   * Extrait un badge unique depuis pdfContent
+   * @param {Object} pdfContent - Contenu PDF
+   * @returns {string} Nom du badge ou chaîne vide
+   */
   function getBadgeNameFromContent(pdfContent) {
     return (
       pdfContent?.badge ||
@@ -21,38 +59,82 @@
     );
   }
 
-  function getBadgeNamesArray() {
-    const stored = sessionStorage.getItem('badgeNames');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {}
+  /**
+   * Extrait les badges depuis pdfContent (tableau ou badge unique)
+   * @param {Object} pdfContent - Contenu PDF
+   * @returns {Array<string>} Tableau des badges
+   */
+  function extractBadgesFromContent(pdfContent) {
+    if (!pdfContent) return [];
+    
+    // Si c'est un tableau
+    if (pdfContent.badges && Array.isArray(pdfContent.badges) && pdfContent.badges.length > 0) {
+      return pdfContent.badges.filter(Boolean).map(b => typeof b === 'string' ? b : (b.nom || b.name || b.slug || b.label || String(b)));
     }
-    const single = sessionStorage.getItem('badgeName');
-    return single ? [single] : [];
+    
+    // Sinon, chercher un badge unique
+    const singleBadge = getBadgeNameFromContent(pdfContent);
+    return singleBadge ? [singleBadge] : [];
   }
 
-  async function loadBadges(onChange) {
-    if (!badgeChoicesContainer || typeof fetchBadgeList !== 'function') return;
-    try {
-      badgeChoicesContainer.innerHTML = '<span class="badge-choices-loading">Chargement...</span>';
+  /**
+   * Normalise un badge (chaîne ou objet) en chaîne
+   * @param {string|Object} badge - Badge à normaliser
+   * @returns {string|null} Nom du badge normalisé
+   */
+  function normalizeBadge(badge) {
+    if (!badge) return null;
+    if (typeof badge === 'string') return badge;
+    if (typeof badge === 'object') {
+      return badge.nom || badge.name || badge.slug || badge.label || badge.titre || null;
+    }
+    return String(badge);
+  }
 
+  // ========================================
+  // CHARGEMENT DES BADGES DEPUIS L'API
+  // ========================================
+
+  /**
+   * Charge la liste des badges disponibles depuis l'API
+   * @param {Function} onChange - Callback appelé quand la sélection change
+   */
+  async function loadBadges(onChange) {
+    
+    if (!badgeChoicesContainer) {
+      console.error('❌ BadgeManager: badgeChoicesContainer non trouvé dans le DOM');
+      return;
+    }
+    
+    if (typeof fetchBadgeList !== 'function') {
+      console.error('❌ BadgeManager: fetchBadgeList n\'est pas une fonction. Vérifiez que api.js est chargé avant preview-badges.js');
+      return;
+    }
+
+    try {
+      badgeChoicesContainer.innerHTML = '<span class="badge-choices-loading">Chargement des badges...</span>';
+
+      // Charger les badges depuis l'API
       const badges = await fetchBadgeList();
+      
       if (!Array.isArray(badges) || badges.length === 0) {
         badgeChoicesContainer.innerHTML = '<span class="badge-choices-loading">Aucun badge disponible</span>';
         return;
       }
 
-      const options = badges.map((b) => {
-        if (typeof b === 'string') {
-          return { value: b, label: b };
-        }
-        const value = b.slug || b.name || b.nom || b.label || b.titre || '';
-        const label = b.nom || b.name || b.label || b.titre || b.slug || value || 'Badge';
-        return { value, label };
-      }).filter(o => o.value);
+      // Normaliser les badges
+      const options = badges.map(badge => {
+        const normalized = normalizeBadge(badge);
+        if (!normalized) return null;
+        
+        const label = typeof badge === 'object' 
+          ? (badge.nom || badge.name || badge.label || badge.titre || normalized)
+          : normalized;
+        
+        return { value: normalized, label };
+      }).filter(o => o && o.value);
 
+      // Dédupliquer
       const seen = new Set();
       const uniqueOptions = options.filter(o => {
         if (seen.has(o.value)) return false;
@@ -65,32 +147,37 @@
         return;
       }
 
-      const defaults = getBadgeNamesArray();
+      // Récupérer les badges sélectionnés actuellement
+      const selectedBadges = getBadgeNamesArray();
+      
+      // URL de base pour les images de badges
       const badgeImageBaseUrl = (typeof CONFIG !== 'undefined' && CONFIG.N8N_BADGE_IMAGE_URL) 
         ? CONFIG.N8N_BADGE_IMAGE_URL 
-        : 'https://n8n-seb.sandbox-jerem.com/webhook/fiche_produit/badge';
-      
-      // Séparer les badges : "_atout", "logo_", et les autres
+        : 'http://localhost:5678/webhook/fiche_produit/badge/get';
+
+      // Organiser les badges par catégorie
       const badgesWithAtout = uniqueOptions.filter(o => o.value.includes('_atout') && !o.value.includes('logo_'));
       const badgesWithLogo = uniqueOptions.filter(o => o.value.includes('logo_'));
       const badgesWithoutSpecial = uniqueOptions.filter(o => !o.value.includes('_atout') && !o.value.includes('logo_'));
-      
+
       // Fonction pour générer le HTML d'un badge
-      const generateBadgeHTML = (o) => {
-        const checked = defaults.includes(o.value) ? 'checked' : '';
-        const badgeImageUrl = `${badgeImageBaseUrl}?name=${encodeURIComponent(o.value)}&cb=${Date.now()}`;
+      const generateBadgeHTML = (option) => {
+        const isChecked = selectedBadges.includes(option.value) ? 'checked' : '';
+        const badgeImageUrl = `${badgeImageBaseUrl}?name=${encodeURIComponent(option.value)}&cb=${Date.now()}`;
+        const Utils = window.Utils || { escapeHtml: (str) => String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') };
+        
         return `
           <label class="badge-choice">
-            <input type="checkbox" value="${o.value}" ${checked}>
+            <input type="checkbox" value="${Utils.escapeHtml(option.value)}" ${isChecked}>
             <div class="badge-choice-content">
-              <img src="${badgeImageUrl}" alt="${Utils.escapeHtml(o.label)}" class="badge-choice-image" loading="lazy">
-              <span class="badge-choice-label">${Utils.escapeHtml(o.label)}</span>
+              <img src="${badgeImageUrl}" alt="${Utils.escapeHtml(option.label)}" class="badge-choice-image" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+              <span class="badge-choice-label" style="display: none;">${Utils.escapeHtml(option.label)}</span>
             </div>
           </label>
         `;
       };
-      
-      // Fonction pour générer le HTML d'un dossier dépliable
+
+      // Fonction pour générer un dossier dépliable
       const generateFolderHTML = (badges, folderTitle, folderIcon = '📁') => {
         if (badges.length === 0) return '';
         const allBadgesHTML = badges.map(generateBadgeHTML).join('');
@@ -110,127 +197,154 @@
           </div>
         `;
       };
-      
-      // Générer le HTML pour les dossiers
+
+      // Générer le HTML final
       const logoFolderHTML = generateFolderHTML(badgesWithLogo, 'Logo (logo_)', '🖼️');
       const atoutFolderHTML = generateFolderHTML(badgesWithAtout, 'Atouts (_atout)', '📁');
-      
-      // Générer le HTML pour les autres badges
       const otherBadgesHTML = badgesWithoutSpecial.map(generateBadgeHTML).join('');
-      
-      // Assembler le HTML final (logo en premier, puis atout, puis les autres)
+
       badgeChoicesContainer.innerHTML = logoFolderHTML + atoutFolderHTML + otherBadgesHTML;
-      
-      // Gérer l'ouverture/fermeture de tous les dossiers dépliables
-      const folderToggles = badgeChoicesContainer.querySelectorAll('.badge-folder-toggle');
-      folderToggles.forEach(folderToggle => {
-        folderToggle.addEventListener('click', () => {
-          const folder = folderToggle.closest('.badge-folder');
-          const folderContent = folder?.querySelector('.badge-folder-content');
-          if (!folderContent) return;
+
+      // Gérer l'ouverture/fermeture des dossiers
+      badgeChoicesContainer.querySelectorAll('.badge-folder-toggle').forEach(toggle => {
+        toggle.addEventListener('click', () => {
+          const folder = toggle.closest('.badge-folder');
+          const content = folder?.querySelector('.badge-folder-content');
+          if (!content) return;
           
-          const isExpanded = folderToggle.getAttribute('aria-expanded') === 'true';
-          
-          if (isExpanded) {
-            folderContent.style.display = 'none';
-            folderToggle.setAttribute('aria-expanded', 'false');
-            folderToggle.querySelector('.badge-folder-arrow').textContent = '▼';
-          } else {
-            folderContent.style.display = 'block';
-            folderToggle.setAttribute('aria-expanded', 'true');
-            folderToggle.querySelector('.badge-folder-arrow').textContent = '▲';
-          }
-        });
-      });
-      
-      // Gérer le chargement des images et afficher le label si l'image échoue
-      badgeChoicesContainer.querySelectorAll('.badge-choice-image').forEach(img => {
-        img.addEventListener('load', () => {
-          // Image chargée avec succès, masquer le label
-          const label = img.nextElementSibling;
-          if (label && label.classList.contains('badge-choice-label')) {
-            label.style.display = 'none';
-          }
-        });
-        img.addEventListener('error', () => {
-          // Image échouée, masquer l'image et afficher le label
-          img.style.display = 'none';
-          const label = img.nextElementSibling;
-          if (label && label.classList.contains('badge-choice-label')) {
-            label.style.display = 'block';
-          }
+          const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+          content.style.display = isExpanded ? 'none' : 'block';
+          toggle.setAttribute('aria-expanded', !isExpanded);
+          toggle.querySelector('.badge-folder-arrow').textContent = isExpanded ? '▼' : '▲';
         });
       });
 
-      badgeChoicesContainer.addEventListener('change', () => {
-        const selected = Array.from(badgeChoicesContainer.querySelectorAll('input[type="checkbox"]:checked'))
-          .map(i => i.value)
-          .filter(Boolean);
-        if (selected.length > 0) {
-          sessionStorage.setItem('badgeNames', JSON.stringify(selected));
-          sessionStorage.setItem('badgeName', selected[0]); // compat
-        } else {
-          sessionStorage.removeItem('badgeNames');
-          sessionStorage.removeItem('badgeName');
-        }
-        ensureLayoutsForBadges(selected.length);
-        const pdfPreviewEl = document.getElementById('pdfPreview');
-        renderBadgeLayoutControls(selected, pdfPreviewEl);
-        updateBadgeCount(selected.length);
-        if (typeof onChange === 'function') {
-          onChange(selected);
+      // Gérer les changements de sélection
+      badgeChoicesContainer.addEventListener('change', async (e) => {
+        if (e.target.type === 'checkbox') {
+          const selected = Array.from(badgeChoicesContainer.querySelectorAll('input[type="checkbox"]:checked'))
+            .map(input => input.value)
+            .filter(Boolean);
+          
+          // Sauvegarder dans sessionStorage
+          if (selected.length > 0) {
+            sessionStorage.setItem('badgeNames', JSON.stringify(selected));
+            sessionStorage.setItem('badgeName', selected[0]); // Compatibilité
+          } else {
+            sessionStorage.removeItem('badgeNames');
+            sessionStorage.removeItem('badgeName');
+          }
+          
+          // Mettre à jour les contrôles de layout
+          ensureLayoutsForBadges(selected.length);
+          const pdfPreviewEl = document.getElementById('pdfPreview');
+          await renderBadgeLayoutControls(selected, pdfPreviewEl);
+          updateBadgeCount(selected.length);
+          
+          // Appeler le callback pour régénérer la preview
+          if (typeof onChange === 'function') {
+            onChange(selected);
+          } else {
+            // Régénération manuelle si le callback n'est pas disponible
+            if (window.currentPdfContent && typeof generateHTML === 'function') {
+              window.currentPdfContent.badges = selected;
+              window.currentPdfContent.badge = selected[0] || '';
+              const html = generateHTML(window.currentPdfContent);
+              if (typeof displayPreview === 'function') {
+                displayPreview(html, window.currentProductName || '');
+              }
+            }
+          }
         }
       });
+
     } catch (err) {
       console.error('❌ Erreur lors du chargement des badges:', err);
       badgeChoicesContainer.innerHTML = '<span class="badge-choices-loading">Erreur de chargement</span>';
     }
   }
 
-  // Layouts
+  // ========================================
+  // GESTION DES LAYOUTS (POSITION, TAILLE)
+  // ========================================
+
+  /**
+   * Layout par défaut pour un badge à un index donné
+   * Positionne les badges au centre du PDF
+   * @param {number} idx - Index du badge
+   * @returns {Object} Layout par défaut
+   */
   function defaultLayoutForIndex(idx) {
-    const col = idx % 3;
-    const row = Math.floor(idx / 3);
+    // Positionner au centre du PDF (50% de gauche, 50% du bas)
+    // Pour les badges multiples : légèrement décalés
+    const offsetX = idx * 15; // Décalage horizontal en pixels
+    const offsetY = idx * 20; // Décalage vertical en pixels (du bas vers le haut)
+    
     return {
-      xPercent: Utils.clamp(3 + col * 18, 0, 90),
-      yPercent: Utils.clamp(row * 20, 0, 90),
-      heightPx: idx === 0 ? DEFAULT_HEIGHT : 70,
+      xPercent: 50, // Centré horizontalement (sera ajusté avec offsetX en pixels)
+      yPercent: 50, // Centré verticalement (sera ajusté avec offsetY en pixels)
+      offsetXPx: offsetX, // Décalage horizontal en pixels
+      offsetYPx: offsetY, // Décalage vertical en pixels
+      heightPx: DEFAULT_HEIGHT,
       colors: {}
     };
   }
 
+  /**
+   * Récupère les layouts sauvegardés
+   * @returns {Object} Layouts par index
+   */
   function getStoredBadgeLayouts() {
     try {
       const raw = sessionStorage.getItem('badgeLayouts');
       if (!raw) return {};
       const parsed = JSON.parse(raw);
-      if (typeof parsed !== 'object') return {};
-      return parsed;
+      return typeof parsed === 'object' ? parsed : {};
     } catch {
       return {};
     }
   }
 
+  /**
+   * Sauvegarde les layouts
+   * @param {Object} layouts - Layouts à sauvegarder
+   */
   function saveBadgeLayouts(layouts) {
     sessionStorage.setItem('badgeLayouts', JSON.stringify(layouts));
   }
 
+  /**
+   * Récupère le layout pour un index donné
+   * @param {number} idx - Index du badge
+   * @returns {Object} Layout
+   */
   function getLayoutForIndex(idx) {
     const stored = getStoredBadgeLayouts();
     return stored[idx] || defaultLayoutForIndex(idx);
   }
 
+  /**
+   * Définit le layout pour un index donné
+   * @param {number} idx - Index du badge
+   * @param {Object} layout - Layout à sauvegarder
+   */
   function setLayoutForIndex(idx, layout) {
     const layouts = getStoredBadgeLayouts();
     layouts[idx] = {
-      xPercent: Utils.clamp(layout.xPercent, 0, 100),
-      yPercent: Utils.clamp(layout.yPercent, 0, 100),
-      heightPx: layout.heightPx,
+      xPercent: layout.xPercent !== undefined ? Math.max(0, Math.min(layout.xPercent, 100)) : 50,
+      yPercent: layout.yPercent !== undefined ? Math.max(0, Math.min(layout.yPercent, 100)) : 50,
+      offsetXPx: layout.offsetXPx || 0,
+      offsetYPx: layout.offsetYPx || 0,
+      heightPx: layout.heightPx || DEFAULT_HEIGHT,
       colors: layout.colors || {}
     };
     saveBadgeLayouts(layouts);
   }
 
+  /**
+   * S'assure qu'il y a des layouts pour tous les badges
+   * @param {number} count - Nombre de badges
+   */
   function ensureLayoutsForBadges(count) {
     const layouts = getStoredBadgeLayouts();
     let changed = false;
@@ -243,128 +357,293 @@
     if (changed) saveBadgeLayouts(layouts);
   }
 
-  function applyBadgeLayoutsToPreview(pdfPreview) {
+  /**
+   * Applique les couleurs personnalisées à un badge spécifique
+   * @param {HTMLElement} pdfPreview - Élément de preview
+   * @param {number} badgeIndex - Index du badge
+   */
+  async function applyBadgeColorsToPreview(pdfPreview, badgeIndex) {
     if (!pdfPreview) return;
+    
     const badges = pdfPreview.querySelectorAll('.badge-instance');
-    badges.forEach((img, idx) => {
-      const layout = getLayoutForIndex(idx);
-      img.style.position = 'absolute';
-      img.style.left = `${Utils.clamp(layout.xPercent, 0, 100)}%`;
-      img.style.bottom = `${Utils.clamp(layout.yPercent, 0, 100)}%`;
-      img.style.margin = '0';
-      img.style.padding = '0';
-      img.style.height = `${layout.heightPx}px`;
-      img.style.maxWidth = '240px';
-      img.style.objectFit = 'contain';
-      img.style.zIndex = '100';
-      
-      // Appliquer les couleurs si définies
-      if (layout.colors && Object.keys(layout.colors).length > 0) {
-        const badgeName = img.getAttribute('data-badge') || '';
-        applyBadgeColorsToPreview(pdfPreview, idx, layout.colors, badgeName);
-      } else {
-        // Retirer le filtre si aucune couleur
-        img.style.filter = '';
-      }
-    });
-  }
-
-  // Appliquer un filtre de couleur à un badge spécifique
-  function applyBadgeColorToPreview(pdfPreview, idx, color) {
-    if (!pdfPreview || !color) {
-      const badges = pdfPreview.querySelectorAll('.badge-instance');
-      if (badges[idx]) {
-        badges[idx].style.filter = '';
+    const badgeImg = badges[badgeIndex];
+    if (!badgeImg) return;
+    
+    // Stocker le SVG original si ce n'est pas déjà fait
+    if (!badgeImg.dataset.originalSvgDataUri && badgeImg.src) {
+      badgeImg.dataset.originalSvgDataUri = badgeImg.src;
+    }
+    
+    const layout = getLayoutForIndex(badgeIndex);
+    if (!layout.colors || Object.keys(layout.colors).length === 0) {
+      // Pas de couleurs personnalisées, restaurer l'original
+      if (badgeImg.dataset.originalSvgDataUri) {
+        badgeImg.src = badgeImg.dataset.originalSvgDataUri;
       }
       return;
     }
-
-    const filterId = `badge-color-filter-${idx}`;
-    let svgFilterContainer = document.getElementById('badge-filter-svg');
     
-    if (!svgFilterContainer) {
-      svgFilterContainer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svgFilterContainer.id = 'badge-filter-svg';
-      svgFilterContainer.style.position = 'absolute';
-      svgFilterContainer.style.width = '0';
-      svgFilterContainer.style.height = '0';
-      svgFilterContainer.style.pointerEvents = 'none';
-      document.body.appendChild(svgFilterContainer);
-    }
-    
-    let defs = svgFilterContainer.querySelector('defs');
-    if (!defs) {
-      defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-      svgFilterContainer.appendChild(defs);
-    }
-    
-    let filter = defs.querySelector(`#${filterId}`);
-    if (!filter) {
-      filter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
-      filter.id = filterId;
-      filter.setAttribute('color-interpolation-filters', 'sRGB');
-      defs.appendChild(filter);
-    }
-    
-    filter.innerHTML = '';
-    
-    // Extraire le canal alpha
-    const extractAlpha = document.createElementNS('http://www.w3.org/2000/svg', 'feColorMatrix');
-    extractAlpha.setAttribute('type', 'matrix');
-    extractAlpha.setAttribute('values', '0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0');
-    extractAlpha.setAttribute('result', 'alpha');
-    filter.appendChild(extractAlpha);
-    
-    // Créer la couleur de remplissage
-    const flood = document.createElementNS('http://www.w3.org/2000/svg', 'feFlood');
-    flood.setAttribute('flood-color', color);
-    flood.setAttribute('result', 'flood');
-    filter.appendChild(flood);
-    
-    // Combiner la couleur avec le canal alpha
-    const composite = document.createElementNS('http://www.w3.org/2000/svg', 'feComposite');
-    composite.setAttribute('in', 'flood');
-    composite.setAttribute('in2', 'alpha');
-    composite.setAttribute('operator', 'in');
-    filter.appendChild(composite);
-    
-    // Appliquer le filtre au badge spécifique
-    const badges = pdfPreview.querySelectorAll('.badge-instance');
-    if (badges[idx]) {
-      badges[idx].style.filter = `url(#${filterId})`;
-    }
+    // Appliquer les couleurs
+    applyBadgeColors(badgeImg, layout.colors);
   }
 
-  function syncBadgeLayoutInputsFromStored() {
-    if (!badgeLayoutContainer) return;
-    const layouts = getStoredBadgeLayouts();
-    badgeLayoutContainer.querySelectorAll('input[data-idx]').forEach((input) => {
-      const idx = Number(input.dataset.idx);
-      const layout = layouts[idx] || defaultLayoutForIndex(idx);
-      input.value = layout.heightPx;
-      // Mettre à jour la valeur affichée
-      const valueEl = document.getElementById(`badgeSizeValue-${idx}`);
-      if (valueEl) {
-        valueEl.textContent = `${layout.heightPx}px`;
+  /**
+   * Applique les layouts aux badges dans la preview
+   * @param {HTMLElement} pdfPreview - Élément de preview
+   */
+  function applyBadgeLayoutsToPreview(pdfPreview) {
+    if (!pdfPreview) return;
+    
+    const badgeGroup = pdfPreview.querySelector('.badge-group');
+    if (!badgeGroup) return;
+    
+    // Les badges doivent être positionnés dans le PDF, pas dans le header
+    // On va les déplacer du badge-group vers le pdfPreview directement
+    let badges = Array.from(pdfPreview.querySelectorAll('.badge-instance'));
+    
+    // Si les badges sont dans le badge-group, les déplacer vers le pdfPreview
+    badges.forEach((img) => {
+      if (img.parentElement === badgeGroup) {
+        pdfPreview.appendChild(img);
       }
     });
-  }
-
-  function onBadgeSizeChange(e, pdfPreview) {
-    const idx = Number(e.target.dataset.idx || 0);
-    const val = Number(e.target.value) || defaultLayoutForIndex(idx).heightPx;
-    const layout = getLayoutForIndex(idx);
-    setLayoutForIndex(idx, { ...layout, heightPx: val });
     
-    // Récupérer pdfPreview depuis le DOM si non fourni
-    const previewEl = pdfPreview || document.getElementById('pdfPreview');
-    if (previewEl) {
-      applyBadgeLayoutsToPreview(previewEl);
-    }
+    // Re-chercher les badges après déplacement pour avoir la liste à jour
+    badges = Array.from(pdfPreview.querySelectorAll('.badge-instance'));
+    
+    // Positionner les badges directement dans le pdfPreview au centre
+    badges.forEach((img, idx) => {
+      const layout = getLayoutForIndex(idx);
+      
+      // Positionner au centre du PDF (50% de gauche, 50% du bas)
+      // Utiliser left: 50% et bottom: 50% avec transform pour centrer parfaitement
+      const offsetX = layout.offsetXPx || 0;
+      const offsetY = layout.offsetYPx || 0;
+      
+      // Appliquer les styles de positionnement absolu dans le PDF
+      img.style.cssText = `
+        position: absolute !important;
+        left: calc(50% + ${offsetX}px) !important;
+        bottom: calc(50% + ${-offsetY}px) !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        height: ${layout.heightPx}px !important;
+        width: auto !important;
+        min-width: 80px !important;
+        max-width: 120px !important;
+        object-fit: contain !important;
+        z-index: 10000 !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        transform: translate(-50%, 50%) !important;
+      `;
+    });
+    
   }
 
-  function renderBadgeLayoutControls(badgeNames, pdfPreview) {
+  // ========================================
+  // GESTION DES COULEURS SVG
+  // ========================================
+
+  /**
+   * Extrait toutes les couleurs uniques d'un SVG
+   * @param {string} svgContent - Contenu SVG (XML string)
+   * @returns {Array<string>} Tableau des couleurs uniques trouvées
+   */
+  function extractColorsFromSVG(svgContent) {
+    if (!svgContent) return [];
+    
+    const colors = new Set();
+    
+    // Expressions régulières pour trouver fill et stroke dans les attributs
+    const fillRegex = /fill=["']([^"']+)["']/gi;
+    const strokeRegex = /stroke=["']([^"']+)["']/gi;
+    
+    // Expressions régulières pour trouver fill et stroke dans les styles inline
+    const styleFillRegex = /fill\s*:\s*([^;]+)/gi;
+    const styleStrokeRegex = /stroke\s*:\s*([^;]+)/gi;
+    
+    let match;
+    
+    // Chercher dans les attributs fill
+    while ((match = fillRegex.exec(svgContent)) !== null) {
+      const color = match[1].trim();
+      if (isValidColor(color)) {
+        colors.add(color);
+      }
+    }
+    
+    // Chercher dans les attributs stroke
+    while ((match = strokeRegex.exec(svgContent)) !== null) {
+      const color = match[1].trim();
+      if (isValidColor(color)) {
+        colors.add(color);
+      }
+    }
+    
+    // Chercher dans les styles inline fill
+    while ((match = styleFillRegex.exec(svgContent)) !== null) {
+      const color = match[1].trim();
+      if (isValidColor(color)) {
+        colors.add(color);
+      }
+    }
+    
+    // Chercher dans les styles inline stroke
+    while ((match = styleStrokeRegex.exec(svgContent)) !== null) {
+      const color = match[1].trim();
+      if (isValidColor(color)) {
+        colors.add(color);
+      }
+    }
+    
+    return Array.from(colors).sort();
+  }
+
+  /**
+   * Vérifie si une valeur est une couleur valide à remplacer
+   * @param {string} color - Valeur de couleur
+   * @returns {boolean} True si c'est une couleur valide
+   */
+  function isValidColor(color) {
+    if (!color) return false;
+    // Ignorer 'none', 'transparent', les gradients (url(...)), et les valeurs CSS complexes
+    if (color === 'none' || color === 'transparent' || color === 'inherit' || color === 'currentColor') {
+      return false;
+    }
+    if (color.startsWith('url(') || color.startsWith('linear-gradient') || color.startsWith('radial-gradient')) {
+      return false;
+    }
+    // Accepter les codes hexadécimaux (#rgb, #rrggbb), rgb/rgba(), et les noms de couleurs CSS
+    return true;
+  }
+
+  /**
+   * Applique des remplacements de couleurs à un SVG
+   * @param {string} svgContent - Contenu SVG original
+   * @param {Object} colorMap - Map des remplacements { ancienneCouleur: nouvelleCouleur }
+   * @returns {string} SVG modifié
+   */
+  function applyColorsToSVG(svgContent, colorMap) {
+    if (!svgContent || !colorMap) return svgContent;
+    
+    let modified = svgContent;
+    
+    // Remplacer les couleurs dans les attributs fill et stroke
+    for (const [oldColor, newColor] of Object.entries(colorMap)) {
+      const escapedColor = escapeRegex(oldColor);
+      
+      // Remplacer dans les attributs fill="..." et stroke="..."
+      modified = modified.replace(
+        new RegExp(`(fill|stroke)=["']${escapedColor}["']`, 'gi'),
+        `$1="${newColor}"`
+      );
+      
+      // Remplacer dans les styles inline style="fill: ..." et style="stroke: ..."
+      // Chercher fill: couleur; ou stroke: couleur; dans les attributs style
+      modified = modified.replace(
+        new RegExp(`(fill|stroke)\\s*:\\s*${escapedColor}(\\s*[;\\s])`, 'gi'),
+        `$1: ${newColor}$2`
+      );
+    }
+    
+    return modified;
+  }
+
+  /**
+   * Échappe les caractères spéciaux pour les expressions régulières
+   * @param {string} str - Chaîne à échapper
+   * @returns {string} Chaîne échappée
+   */
+  function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
+   * Décode un data URI SVG et retourne le contenu XML
+   * @param {string} dataUri - Data URI (data:image/svg+xml;base64,... ou data:image/svg+xml;charset=utf-8,...)
+   * @returns {string|null} Contenu SVG ou null si erreur
+   */
+  function decodeSVGDataURI(dataUri) {
+    if (!dataUri || !dataUri.startsWith('data:image/svg+xml')) {
+      return null;
+    }
+    
+    try {
+      // Format base64
+      if (dataUri.includes(';base64,')) {
+        const base64 = dataUri.split(';base64,')[1];
+        return atob(base64);
+      }
+      // Format URL encoded
+      else if (dataUri.includes(',')) {
+        const encoded = dataUri.split(',')[1];
+        return decodeURIComponent(encoded);
+      }
+    } catch (e) {
+      console.error('Erreur lors du décodage du SVG:', e);
+    }
+    
+    return null;
+  }
+
+  /**
+   * Encode un SVG en data URI
+   * @param {string} svgContent - Contenu SVG
+   * @returns {string} Data URI
+   */
+  function encodeSVGToDataURI(svgContent) {
+    if (!svgContent) return '';
+    const encoded = btoa(unescape(encodeURIComponent(svgContent)));
+    return `data:image/svg+xml;base64,${encoded}`;
+  }
+
+  /**
+   * Obtient les couleurs d'un badge depuis son image
+   * @param {HTMLImageElement} badgeImg - Élément image du badge
+   * @returns {Array<string>} Tableau des couleurs
+   */
+  async function getBadgeColors(badgeImg) {
+    if (!badgeImg || !badgeImg.src) return [];
+    
+    // Utiliser l'original si disponible, sinon le src actuel
+    const srcToUse = badgeImg.dataset.originalSvgDataUri || badgeImg.src;
+    const svgContent = decodeSVGDataURI(srcToUse);
+    if (!svgContent) return [];
+    
+    return extractColorsFromSVG(svgContent);
+  }
+
+  /**
+   * Applique les couleurs personnalisées à un badge
+   * @param {HTMLImageElement} badgeImg - Élément image du badge
+   * @param {Object} colorMap - Map des remplacements de couleurs { ancienneCouleur: nouvelleCouleur }
+   */
+  function applyBadgeColors(badgeImg, colorMap) {
+    if (!badgeImg || !colorMap) return;
+    
+    // Stocker le SVG original si ce n'est pas déjà fait
+    if (!badgeImg.dataset.originalSvgDataUri) {
+      badgeImg.dataset.originalSvgDataUri = badgeImg.src;
+    }
+    
+    const originalSVG = decodeSVGDataURI(badgeImg.dataset.originalSvgDataUri);
+    if (!originalSVG) return;
+    
+    const modifiedSVG = applyColorsToSVG(originalSVG, colorMap);
+    badgeImg.src = encodeSVGToDataURI(modifiedSVG);
+  }
+
+  /**
+   * Affiche les contrôles de layout pour les badges sélectionnés
+   * @param {Array<string>} badgeNames - Noms des badges sélectionnés
+   * @param {HTMLElement} pdfPreview - Élément de preview
+   */
+  async function renderBadgeLayoutControls(badgeNames, pdfPreview) {
     if (!badgeLayoutContainer) return;
+    
     if (!Array.isArray(badgeNames) || badgeNames.length === 0) {
       badgeLayoutContainer.innerHTML = '<p class="empty-state">Sélectionnez un atout pour le configurer</p>';
       const configSection = badgeLayoutContainer.closest('.badges-config-section');
@@ -374,22 +653,70 @@
       return;
     }
 
-    // Couleurs disponibles pour les badges
-    const availableColors = [
-      { value: '#E65B0C', label: 'Orange' },
-      { value: '#F6E2BE', label: 'Beige' },
-      { value: '#60191A', label: 'Bordeaux' },
-      { value: '#B5DBE8', label: 'Bleu clair' },
-      { value: '#000000', label: 'Noir' },
-      { value: '#FFFFFF', label: 'Blanc' }
-    ];
-
     const layouts = getStoredBadgeLayouts();
-    
-    // Générer le HTML pour chaque badge avec chargement asynchrone des couleurs SVG
-    const html = badgeNames.map((name, idx) => {
+    const Utils = window.Utils || { escapeHtml: (str) => String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') };
+
+    // Générer les contrôles pour chaque badge
+    const htmlPromises = badgeNames.map(async (name, idx) => {
       const layout = layouts[idx] || defaultLayoutForIndex(idx);
-      const badgeColors = layout.colors || {};
+      let badgeColors = [];
+      
+      // Essayer d'abord de récupérer les couleurs depuis le badge dans la preview
+      const badgeImgs = pdfPreview ? pdfPreview.querySelectorAll('.badge-instance') : [];
+      const badgeImg = badgeImgs[idx];
+      
+      if (badgeImg && badgeImg.src) {
+        badgeColors = await getBadgeColors(badgeImg);
+      }
+      
+      // Si on n'a pas réussi à extraire les couleurs depuis la preview,
+      // charger le badge depuis l'URL pour extraire ses couleurs
+      if (badgeColors.length === 0) {
+        try {
+          const badgeImageBaseUrl = (typeof CONFIG !== 'undefined' && CONFIG.N8N_BADGE_IMAGE_URL) 
+            ? CONFIG.N8N_BADGE_IMAGE_URL 
+            : 'http://localhost:5678/webhook/fiche_produit/badge';
+          const badgeUrl = `${badgeImageBaseUrl}?name=${encodeURIComponent(name)}`;
+          
+          const response = await fetch(badgeUrl);
+          if (response.ok) {
+            const svgText = await response.text();
+            badgeColors = extractColorsFromSVG(svgText);
+          }
+        } catch (err) {
+          console.warn(`Impossible de charger le badge ${name} pour extraire les couleurs:`, err);
+        }
+      }
+      
+      // Construire les contrôles de couleur
+      // Toujours afficher la section de couleurs, même si aucune couleur n'a été détectée (pour le moment)
+      const colorControlsHtml = `
+        <div class="control-group badge-colors-group">
+          <label class="control-label">Couleurs</label>
+          ${badgeColors.length > 0 ? `
+            <div class="badge-colors-list">
+              ${badgeColors.map((color, colorIdx) => {
+                const colorKey = `color_${colorIdx}`;
+                const currentColor = layout.colors && layout.colors[color] ? layout.colors[color] : color;
+                return `
+                  <div class="badge-color-item">
+                    <div class="color-preview" style="background-color: ${Utils.escapeHtml(currentColor)}; width: 24px; height: 24px; border-radius: 4px; border: 1px solid #ddd;"></div>
+                    <select class="badge-color-select" data-idx="${idx}" data-original-color="${Utils.escapeHtml(color)}">
+                      <option value="${Utils.escapeHtml(color)}" ${currentColor === color ? 'selected' : ''}>Original (${Utils.escapeHtml(color)})</option>
+                      ${Object.entries(AVAILABLE_COLORS).map(([key, value]) => `
+                        <option value="${value}" ${currentColor === value ? 'selected' : ''}>${key} (${value})</option>
+                      `).join('')}
+                    </select>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          ` : `
+            <p class="badge-colors-empty">Aucune couleur détectée dans ce badge</p>
+          `}
+        </div>
+      `;
+      
       return `
         <div class="badge-layout-container" data-badge-idx="${idx}" data-badge-name="${Utils.escapeHtml(name)}">
           <div class="badge-layout-header">
@@ -403,320 +730,94 @@
               </label>
               <input type="range" id="badgeSize-${idx}" data-idx="${idx}" min="40" max="180" value="${layout.heightPx}" step="2">
             </div>
-            <div class="control-group badge-colors-container" id="badgeColors-${idx}">
-              <label class="control-label">
-                <span>Couleurs</span>
-              </label>
-              <div class="badge-colors-loading">Analyse du SVG...</div>
-            </div>
+            ${colorControlsHtml}
           </div>
         </div>
       `;
-    }).join('');
+    });
+    
+    // Attendre que tous les badges soient analysés
+    const htmlParts = await Promise.all(htmlPromises);
+    const html = htmlParts.join('');
 
     badgeLayoutContainer.innerHTML = html;
-    
-    // Gérer l'affichage de l'empty state
+
+    // Gérer l'état de la section
     const configSection = badgeLayoutContainer.closest('.badges-config-section');
     if (configSection) {
-      if (badgeNames.length > 0) {
-        configSection.classList.add('has-content');
-      } else {
-        configSection.classList.remove('has-content');
-      }
+      configSection.classList.add('has-content');
     }
-    
-    badgeLayoutContainer.querySelectorAll('input[data-idx]').forEach((input) => {
-      input.addEventListener('input', (ev) => {
-        // Récupérer pdfPreview depuis le DOM si non fourni
+
+    // Attacher les événements de changement de taille
+    badgeLayoutContainer.querySelectorAll('input[data-idx]').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const idx = Number(e.target.dataset.idx);
+        const val = Number(e.target.value) || DEFAULT_HEIGHT;
+        const layout = getLayoutForIndex(idx);
+        setLayoutForIndex(idx, { ...layout, heightPx: val });
+        
         const previewEl = pdfPreview || document.getElementById('pdfPreview');
-        onBadgeSizeChange(ev, previewEl);
-        // Mettre à jour la valeur affichée
-        const idx = Number(ev.target.dataset.idx);
+        if (previewEl) {
+          applyBadgeLayoutsToPreview(previewEl);
+        }
+        
         const valueEl = document.getElementById(`badgeSizeValue-${idx}`);
         if (valueEl) {
-          valueEl.textContent = `${ev.target.value}px`;
+          valueEl.textContent = `${val}px`;
         }
       });
     });
-
-    // Charger et analyser les SVG pour chaque badge
-    badgeNames.forEach((name, idx) => {
-      loadAndAnalyzeBadgeSVG(name, idx, availableColors);
+    
+    // Attacher les événements de changement de couleur
+    badgeLayoutContainer.querySelectorAll('.badge-color-select').forEach(select => {
+      // Mettre à jour l'indicateur de couleur au changement
+      const updateColorPreview = () => {
+        const colorPreview = select.closest('.badge-color-item')?.querySelector('.color-preview');
+        if (colorPreview) {
+          const selectedColor = select.value;
+          colorPreview.style.backgroundColor = selectedColor;
+        }
+      };
+      
+      // Mettre à jour lors du changement de sélection
+      select.addEventListener('change', async (e) => {
+        const idx = Number(e.target.dataset.idx);
+        const originalColor = e.target.dataset.originalColor;
+        const newColor = e.target.value;
+        
+        // Mettre à jour l'indicateur de couleur immédiatement
+        updateColorPreview();
+        
+        const layout = getLayoutForIndex(idx);
+        const colors = { ...(layout.colors || {}) };
+        
+        if (newColor === originalColor) {
+          // Retour à la couleur originale
+          delete colors[originalColor];
+        } else {
+          // Nouvelle couleur personnalisée
+          colors[originalColor] = newColor;
+        }
+        
+        setLayoutForIndex(idx, { ...layout, colors });
+        
+        // Appliquer les couleurs au badge dans la preview
+        const previewEl = pdfPreview || document.getElementById('pdfPreview');
+        if (previewEl) {
+          await applyBadgeColorsToPreview(previewEl, idx);
+          applyBadgeLayoutsToPreview(previewEl);
+        }
+      });
+      
+      // Initialiser l'indicateur avec la couleur actuelle
+      updateColorPreview();
     });
   }
 
-  // Charger et analyser un SVG pour extraire ses couleurs
-  async function loadAndAnalyzeBadgeSVG(badgeName, idx, availableColors) {
-    const colorsContainer = document.getElementById(`badgeColors-${idx}`);
-    if (!colorsContainer) return;
-
-    try {
-      const badgeImageBaseUrl = (typeof CONFIG !== 'undefined' && CONFIG.N8N_BADGE_IMAGE_URL) 
-        ? CONFIG.N8N_BADGE_IMAGE_URL 
-        : 'https://n8n-seb.sandbox-jerem.com/webhook/fiche_produit/badge';
-      
-      const badgeUrl = `${badgeImageBaseUrl}?name=${encodeURIComponent(badgeName)}&cb=${Date.now()}`;
-      
-      // Charger le SVG en tant que texte
-      const response = await fetch(badgeUrl);
-      if (!response.ok) throw new Error('Erreur de chargement');
-      
-      const svgText = await response.text();
-      
-      // Parser le SVG pour extraire les couleurs
-      const colors = extractColorsFromSVG(svgText);
-      
-      if (colors.length === 0) {
-        colorsContainer.innerHTML = '<div class="badge-colors-empty">Aucune couleur détectée</div>';
-        return;
-      }
-
-      // Récupérer les couleurs sauvegardées
-      const layout = getLayoutForIndex(idx);
-      const savedColors = layout.colors || {};
-
-      // Générer les contrôles de couleur
-      const colorsHtml = colors.map((originalColor, colorIdx) => {
-        const colorKey = `color-${colorIdx}`;
-        const savedColor = savedColors[colorKey] || originalColor;
-        return `
-          <div class="badge-color-item">
-            <label class="control-label-small">
-              <span class="color-label">Couleur ${colorIdx + 1}</span>
-              <span class="color-preview" style="background-color: ${savedColor};"></span>
-            </label>
-            <select class="select-input-small badge-color-select" 
-                    data-idx="${idx}" 
-                    data-color-key="${colorKey}"
-                    data-original-color="${originalColor}">
-              <option value="${originalColor}" ${savedColor === originalColor ? 'selected' : ''}>Original (${originalColor})</option>
-              ${availableColors.map(c => 
-                `<option value="${c.value}" ${savedColor === c.value ? 'selected' : ''}>${c.label}</option>`
-              ).join('')}
-            </select>
-          </div>
-        `;
-      }).join('');
-
-      colorsContainer.innerHTML = `
-        <div class="badge-colors-list">${colorsHtml}</div>
-      `;
-
-      // Attacher les événements de changement de couleur
-      colorsContainer.querySelectorAll('.badge-color-select').forEach((select) => {
-        select.addEventListener('change', (ev) => {
-          const badgeIdx = Number(ev.target.dataset.idx);
-          const colorKey = ev.target.dataset.colorKey;
-          const newColor = ev.target.value;
-          
-          // Mettre à jour les couleurs sauvegardées
-          const layout = getLayoutForIndex(badgeIdx);
-          if (!layout.colors) layout.colors = {};
-          layout.colors[colorKey] = newColor;
-          setLayoutForIndex(badgeIdx, layout);
-          
-          // Mettre à jour le preview
-          const previewEl = pdfPreview || document.getElementById('pdfPreview');
-          if (previewEl) {
-            applyBadgeColorsToPreview(previewEl, badgeIdx, layout.colors, badgeName);
-          }
-          
-          // Mettre à jour le preview de couleur
-          const colorPreview = ev.target.previousElementSibling?.querySelector('.color-preview');
-          if (colorPreview) {
-            colorPreview.style.backgroundColor = newColor;
-          }
-        });
-      });
-
-    } catch (error) {
-      console.error('Erreur lors de l\'analyse du SVG:', error);
-      colorsContainer.innerHTML = '<div class="badge-colors-error">Erreur de chargement</div>';
-    }
-  }
-
-  // Extraire toutes les couleurs uniques d'un SVG
-  function extractColorsFromSVG(svgText) {
-    const colors = new Set();
-    
-    // Parser le SVG avec un DOMParser
-    const parser = new DOMParser();
-    const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
-    
-    // Fonction récursive pour parcourir tous les éléments
-    function traverseElement(element) {
-      if (!element || element.nodeType !== 1) return; // Node.ELEMENT_NODE
-      
-      // Extraire fill
-      const fill = element.getAttribute('fill');
-      if (fill && fill !== 'none' && fill !== 'transparent' && !fill.startsWith('url(')) {
-        const normalizedFill = normalizeColor(fill);
-        if (normalizedFill) colors.add(normalizedFill);
-      }
-      
-      // Extraire stroke
-      const stroke = element.getAttribute('stroke');
-      if (stroke && stroke !== 'none' && stroke !== 'transparent' && !stroke.startsWith('url(')) {
-        const normalizedStroke = normalizeColor(stroke);
-        if (normalizedStroke) colors.add(normalizedStroke);
-      }
-      
-      // Parcourir les enfants
-      Array.from(element.children).forEach(child => traverseElement(child));
-    }
-    
-    traverseElement(svgDoc.documentElement);
-    
-    return Array.from(colors);
-  }
-
-  // Normaliser une couleur (hex, rgb, nom) en hex
-  function normalizeColor(color) {
-    if (!color) return null;
-    
-    // Si c'est déjà en hex
-    if (/^#[0-9A-Fa-f]{6}$/.test(color)) return color.toUpperCase();
-    if (/^#[0-9A-Fa-f]{3}$/.test(color)) {
-      // Convertir #RGB en #RRGGBB
-      return '#' + color[1] + color[1] + color[2] + color[2] + color[3] + color[3];
-    }
-    
-    // Si c'est en rgb/rgba
-    const rgbMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-    if (rgbMatch) {
-      const r = parseInt(rgbMatch[1]).toString(16).padStart(2, '0');
-      const g = parseInt(rgbMatch[2]).toString(16).padStart(2, '0');
-      const b = parseInt(rgbMatch[3]).toString(16).padStart(2, '0');
-      return '#' + r + g + b;
-    }
-    
-    // Noms de couleurs CSS
-    const colorNames = {
-      'black': '#000000', 'white': '#FFFFFF', 'red': '#FF0000',
-      'green': '#008000', 'blue': '#0000FF', 'yellow': '#FFFF00',
-      'orange': '#FFA500', 'purple': '#800080', 'pink': '#FFC0CB'
-    };
-    if (colorNames[color.toLowerCase()]) {
-      return colorNames[color.toLowerCase()];
-    }
-    
-    return null;
-  }
-
-  // Appliquer les couleurs modifiées au badge dans le preview
-  async function applyBadgeColorsToPreview(pdfPreview, idx, colors, badgeName) {
-    if (!pdfPreview || !colors || Object.keys(colors).length === 0) return;
-
-    try {
-      const badgeImageBaseUrl = (typeof CONFIG !== 'undefined' && CONFIG.N8N_BADGE_IMAGE_URL) 
-        ? CONFIG.N8N_BADGE_IMAGE_URL 
-        : 'https://n8n-seb.sandbox-jerem.com/webhook/fiche_produit/badge';
-      
-      const badgeUrl = `${badgeImageBaseUrl}?name=${encodeURIComponent(badgeName)}&cb=${Date.now()}`;
-      
-      // Charger le SVG original
-      const response = await fetch(badgeUrl);
-      if (!response.ok) throw new Error('Erreur de chargement');
-      
-      const svgText = await response.text();
-      
-      // Modifier les couleurs dans le SVG
-      const modifiedSVG = replaceColorsInSVG(svgText, colors);
-      
-      // Convertir en data URI directement (pas de blob URL pour compatibilité PDF)
-      const encoded = btoa(unescape(encodeURIComponent(modifiedSVG)));
-      const dataUri = `data:image/svg+xml;base64,${encoded}`;
-      
-      // Appliquer au badge dans le preview
-      const badges = pdfPreview.querySelectorAll('.badge-instance');
-      if (badges[idx]) {
-        badges[idx].src = dataUri;
-        badges[idx].style.filter = ''; // Retirer les anciens filtres
-      }
-      
-    } catch (error) {
-      console.error('Erreur lors de l\'application des couleurs:', error);
-    }
-  }
-
-  // Remplacer les couleurs dans un SVG
-  function replaceColorsInSVG(svgText, colorMap) {
-    const parser = new DOMParser();
-    const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
-    
-    // Créer un mapping des couleurs originales vers les nouvelles
-    const colorKeys = Object.keys(colorMap).sort();
-    const originalColors = [];
-    
-    // Extraire les couleurs originales dans l'ordre
-    function extractOriginalColors(element) {
-      if (!element || element.nodeType !== 1) return;
-      
-      const fill = element.getAttribute('fill');
-      if (fill && fill !== 'none' && fill !== 'transparent' && !fill.startsWith('url(')) {
-        const normalized = normalizeColor(fill);
-        if (normalized && !originalColors.includes(normalized)) {
-          originalColors.push(normalized);
-        }
-      }
-      
-      const stroke = element.getAttribute('stroke');
-      if (stroke && stroke !== 'none' && stroke !== 'transparent' && !stroke.startsWith('url(')) {
-        const normalized = normalizeColor(stroke);
-        if (normalized && !originalColors.includes(normalized)) {
-          originalColors.push(normalized);
-        }
-      }
-      
-      Array.from(element.children).forEach(child => extractOriginalColors(child));
-    }
-    
-    extractOriginalColors(svgDoc.documentElement);
-    
-    // Remplacer les couleurs
-    function replaceColors(element) {
-      if (!element || element.nodeType !== 1) return;
-      
-      // Remplacer fill
-      const fill = element.getAttribute('fill');
-      if (fill && fill !== 'none' && fill !== 'transparent' && !fill.startsWith('url(')) {
-        const normalized = normalizeColor(fill);
-        if (normalized) {
-          const colorIdx = originalColors.indexOf(normalized);
-          if (colorIdx >= 0 && colorIdx < colorKeys.length) {
-            const newColor = colorMap[colorKeys[colorIdx]];
-            if (newColor) {
-              element.setAttribute('fill', newColor);
-            }
-          }
-        }
-      }
-      
-      // Remplacer stroke
-      const stroke = element.getAttribute('stroke');
-      if (stroke && stroke !== 'none' && stroke !== 'transparent' && !stroke.startsWith('url(')) {
-        const normalized = normalizeColor(stroke);
-        if (normalized) {
-          const colorIdx = originalColors.indexOf(normalized);
-          if (colorIdx >= 0 && colorIdx < colorKeys.length) {
-            const newColor = colorMap[colorKeys[colorIdx]];
-            if (newColor) {
-              element.setAttribute('stroke', newColor);
-            }
-          }
-        }
-      }
-      
-      Array.from(element.children).forEach(child => replaceColors(child));
-    }
-    
-    replaceColors(svgDoc.documentElement);
-    
-    // Retourner le SVG modifié en tant que string
-    return new XMLSerializer().serializeToString(svgDoc.documentElement);
-  }
-
+  /**
+   * Met à jour le compteur de badges
+   * @param {number} count - Nombre de badges
+   */
   function updateBadgeCount(count) {
     const badgeCountEl = document.getElementById('badgeCount');
     if (badgeCountEl) {
@@ -725,7 +826,19 @@
     }
   }
 
-  // Drag & drop
+  // ========================================
+  // DRAG & DROP
+  // ========================================
+
+  let isDraggingBadge = false;
+  let dragOffset = { x: 0, y: 0, badgeIndex: 0 };
+  let dragBadgeElement = null;
+  let dragAnimationFrame = null;
+
+  /**
+   * Attache le drag & drop à un badge
+   * @param {HTMLElement} badgeEl - Élément badge
+   */
   function attachBadgeDrag(badgeEl) {
     if (!badgeEl) return;
     badgeEl.style.cursor = 'move';
@@ -733,89 +846,220 @@
     badgeEl.addEventListener('touchstart', startBadgeDrag, { passive: false });
   }
 
+  /**
+   * Démarre le drag d'un badge
+   * @param {Event} e - Événement
+   */
   function startBadgeDrag(e) {
     e.preventDefault();
+    e.stopPropagation(); // Empêcher les conflits avec d'autres systèmes de drag
+    
     const badgeEl = e.currentTarget;
     const pdfPreview = document.getElementById('pdfPreview');
     if (!pdfPreview || !badgeEl) return;
 
-    const point = Utils.getPointFromEvent(e);
+    // Empêcher la sélection de texte pendant le drag
+    if (e.cancelable) {
+      e.preventDefault();
+    }
+
+    const Utils = window.Utils || {};
+    const getPointFromEvent = Utils.getPointFromEvent || ((e) => ({
+      x: e.touches ? e.touches[0].clientX : e.clientX,
+      y: e.touches ? e.touches[0].clientY : e.clientY
+    }));
+
+    const point = getPointFromEvent(e);
     const rect = badgeEl.getBoundingClientRect();
+    const badgeIndex = Array.from(pdfPreview.querySelectorAll('.badge-instance')).indexOf(badgeEl);
+    const containerRect = pdfPreview.getBoundingClientRect();
+    
+    // Calculer l'offset initial : distance entre le point de clic et le centre du badge
+    const badgeCenterX = rect.left + rect.width / 2;
+    const badgeCenterY = rect.top + rect.height / 2;
+    
     dragOffset = {
-      x: point.x - rect.left,
-      y: point.y - rect.top,
-      badgeIndex: Array.from(pdfPreview.querySelectorAll('.badge-instance')).indexOf(badgeEl)
+      x: point.x - badgeCenterX, // Offset horizontal de la souris par rapport au centre du badge
+      y: point.y - badgeCenterY, // Offset vertical de la souris par rapport au centre du badge
+      badgeIndex: badgeIndex
     };
+    dragBadgeElement = badgeEl;
     isDraggingBadge = true;
 
-    document.addEventListener('mousemove', onBadgeDragMove);
-    document.addEventListener('mouseup', endBadgeDrag);
-    document.addEventListener('touchmove', onBadgeDragMove, { passive: false });
-    document.addEventListener('touchend', endBadgeDrag);
+    // Ajouter une classe pour le style pendant le drag
+    badgeEl.classList.add('dragging');
+
+    // Utiliser capture phase pour intercepter les événements avant les autres handlers
+    document.addEventListener('mousemove', onBadgeDragMove, { passive: false, capture: true });
+    document.addEventListener('mouseup', endBadgeDrag, { capture: true });
+    document.addEventListener('touchmove', onBadgeDragMove, { passive: false, capture: true });
+    document.addEventListener('touchend', endBadgeDrag, { capture: true });
   }
 
+  /**
+   * Gère le mouvement pendant le drag - Version optimisée avec requestAnimationFrame
+   * @param {Event} e - Événement
+   */
   function onBadgeDragMove(e) {
-    if (!isDraggingBadge) return;
+    if (!isDraggingBadge || !dragBadgeElement) return;
+    
     e.preventDefault();
+    e.stopPropagation(); // Empêcher les conflits
+    
+    // Annuler l'animation frame précédente si elle existe
+    if (dragAnimationFrame) {
+      cancelAnimationFrame(dragAnimationFrame);
+    }
+    
+    // Utiliser requestAnimationFrame pour une animation fluide
+    dragAnimationFrame = requestAnimationFrame(() => {
+      updateBadgePosition(e);
+    });
+  }
+
+  /**
+   * Met à jour la position du badge pendant le drag
+   * @param {Event} e - Événement
+   */
+  function updateBadgePosition(e) {
+    if (!isDraggingBadge || !dragBadgeElement) return;
+    
     const pdfPreview = document.getElementById('pdfPreview');
     if (!pdfPreview) return;
 
-    const point = Utils.getPointFromEvent(e);
+    const Utils = window.Utils || {};
+    const getPointFromEvent = Utils.getPointFromEvent || ((e) => ({
+      x: e.touches ? e.touches[0].clientX : e.clientX,
+      y: e.touches ? e.touches[0].clientY : e.clientY
+    }));
+
+    const point = getPointFromEvent(e);
     const containerRect = pdfPreview.getBoundingClientRect();
 
-    let leftPx = point.x - dragOffset.x - containerRect.left;
-    let topPx = point.y - dragOffset.y - containerRect.top;
+    const centerX = containerRect.width / 2;
+    const centerY = containerRect.height / 2;
+    
+    // Calculer où se trouve le centre du badge maintenant (en suivant la souris)
+    const badgeCenterX = point.x - dragOffset.x;
+    const badgeCenterY = point.y - dragOffset.y;
+    
+    // Convertir en coordonnées relatives au conteneur PDF
+    const badgeCenterXInContainer = badgeCenterX - containerRect.left;
+    const badgeCenterYInContainer = badgeCenterY - containerRect.top;
 
-    const badgeList = pdfPreview.querySelectorAll('.badge-instance');
-    const badge = (dragOffset.badgeIndex != null && dragOffset.badgeIndex >= 0) ? badgeList[dragOffset.badgeIndex] : badgeList[0];
-    const badgeRect = badge ? badge.getBoundingClientRect() : { width: 0, height: 0 };
-    leftPx = Math.max(0, Math.min(leftPx, containerRect.width - badgeRect.width));
-    topPx = Math.max(0, Math.min(topPx, containerRect.height - badgeRect.height));
+    const badgeRect = dragBadgeElement.getBoundingClientRect();
+    const badgeWidth = badgeRect.width || 80;
+    const badgeHeight = badgeRect.height || 60;
+    
+    // Limiter la position du centre dans les bounds du conteneur
+    const limitedCenterX = Math.max(badgeWidth / 2, Math.min(badgeCenterXInContainer, containerRect.width - badgeWidth / 2));
+    const limitedCenterY = Math.max(badgeHeight / 2, Math.min(badgeCenterYInContainer, containerRect.height - badgeHeight / 2));
 
-    const xPercent = (leftPx / containerRect.width) * 100;
-    const bottomPx = containerRect.height - (topPx + badgeRect.height);
-    const yPercent = (bottomPx / containerRect.height) * 100;
+    // Calculer l'offset depuis le centre du PDF
+    // X : positif = badge vers la droite du centre
+    const offsetXPx = limitedCenterX - centerX;
+    // Y : on utilise bottom donc il faut convertir
+    // Si limitedCenterY augmente (vers le bas), le badge doit descendre, donc bottom doit diminuer
+    // bottom = 50% - offsetY (car bottom fonctionne à l'envers)
+    const offsetYPxFromTop = limitedCenterY - centerY; // Positif = vers le bas depuis le centre
 
-    const badgeIdx = (dragOffset.badgeIndex != null && dragOffset.badgeIndex >= 0) ? dragOffset.badgeIndex : 0;
-    const currentLayout = getLayoutForIndex(badgeIdx);
-    const layout = {
-      xPercent: Utils.clamp(xPercent, 0, 100),
-      yPercent: Utils.clamp(yPercent, 0, 100),
-      heightPx: badgeRect.height || currentLayout.heightPx,
-      color: currentLayout.color || null
-    };
-
-    setLayoutForIndex(badgeIdx, layout);
-    applyBadgeLayoutsToPreview(pdfPreview);
-    syncBadgeLayoutInputsFromStored();
+    // Appliquer directement le style
+    // Pour bottom, on inverse le signe car bottom augmente vers le haut
+    dragBadgeElement.style.left = `calc(50% + ${offsetXPx}px)`;
+    dragBadgeElement.style.bottom = `calc(50% + ${-offsetYPxFromTop}px)`;
+    
+    // Sauvegarder temporairement dans le dragOffset pour la sauvegarde finale
+    dragOffset.currentOffsetX = offsetXPx;
+    dragOffset.currentOffsetY = -offsetYPxFromTop; // Inversé car on utilise bottom
   }
 
-  function endBadgeDrag() {
+  /**
+   * Termine le drag et sauvegarde la position finale
+   */
+  function endBadgeDrag(e) {
+    if (!isDraggingBadge) return;
+    
+    if (e) {
+      e.stopPropagation();
+    }
+    
+    // Annuler l'animation frame si elle existe
+    if (dragAnimationFrame) {
+      cancelAnimationFrame(dragAnimationFrame);
+      dragAnimationFrame = null;
+    }
+    
+    if (dragBadgeElement) {
+      // Retirer la classe de drag
+      dragBadgeElement.classList.remove('dragging');
+      
+      // Sauvegarder la position finale dans le layout
+      const pdfPreview = document.getElementById('pdfPreview');
+      if (pdfPreview && dragOffset.currentOffsetX !== undefined && dragOffset.currentOffsetY !== undefined) {
+        const currentLayout = getLayoutForIndex(dragOffset.badgeIndex);
+        const layout = {
+          xPercent: 50,
+          yPercent: 50,
+          offsetXPx: dragOffset.currentOffsetX,
+          offsetYPx: dragOffset.currentOffsetY, // Déjà dans le bon format pour bottom
+          heightPx: currentLayout.heightPx || DEFAULT_HEIGHT,
+          colors: currentLayout.colors || {}
+        };
+        
+        setLayoutForIndex(dragOffset.badgeIndex, layout);
+      }
+      
+      dragBadgeElement = null;
+    }
+    
     isDraggingBadge = false;
-    document.removeEventListener('mousemove', onBadgeDragMove);
-    document.removeEventListener('mouseup', endBadgeDrag);
-    document.removeEventListener('touchmove', onBadgeDragMove);
-    document.removeEventListener('touchend', endBadgeDrag);
+    
+    // Retirer les listeners
+    document.removeEventListener('mousemove', onBadgeDragMove, { capture: true });
+    document.removeEventListener('mouseup', endBadgeDrag, { capture: true });
+    document.removeEventListener('touchmove', onBadgeDragMove, { capture: true });
+    document.removeEventListener('touchend', endBadgeDrag, { capture: true });
   }
 
+  /**
+   * Attache le drag & drop à tous les badges
+   * @param {HTMLElement} pdfPreview - Élément de preview
+   */
   function attachDragToAll(pdfPreview) {
+    if (!pdfPreview) return;
     const instances = pdfPreview.querySelectorAll('.badge-instance');
-    instances.forEach((img) => attachBadgeDrag(img));
+    instances.forEach(img => attachBadgeDrag(img));
   }
 
-  // Expose module global
+  // ========================================
+  // API PUBLIQUE
+  // ========================================
+
   window.BadgeManager = {
     loadBadges,
     getBadgeNames: getBadgeNamesArray,
     renderLayoutControls: renderBadgeLayoutControls,
     applyLayouts: applyBadgeLayoutsToPreview,
+    applyColors: applyBadgeColorsToPreview,
     ensureLayouts: ensureLayoutsForBadges,
     attachDragToAll,
     getLayoutForIndex,
     setLayoutForIndex,
     defaultLayoutForIndex,
-    syncLayoutInputsFromStored: syncBadgeLayoutInputsFromStored,
-    updateBadgeCount
+    updateBadgeCount,
+    extractBadgesFromContent,
+    getBadgeColors,
+    applyBadgeColors
   };
-})();
 
+  // Exposer aussi pour compatibilité
+  if (typeof window.getBadgeNamesArray === 'undefined') {
+    window.getBadgeNamesArray = getBadgeNamesArray;
+  }
+  
+  if (typeof window.getBadgeNameFromContent === 'undefined') {
+    window.getBadgeNameFromContent = getBadgeNameFromContent;
+  }
+
+  // BadgeManager initialisé
+})();

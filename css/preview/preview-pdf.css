@@ -73,15 +73,16 @@
   transform: rotate(3deg);
   transform-origin: top left;
   margin: 0;
-  overflow: visible; /* Permettre au bas de sortir du cadre */
+  overflow: visible !important; /* Permettre au bas de sortir du cadre - Important pour ne pas masquer les badges */
 }
 
 /* Badge dans la bande orange - Ajusté pour padding réduit */
 #pdfPreview .header-orange-band > .badge-group {
-  position: relative;
-  z-index: 12;
-  top: 0;
-  left: 0;
+  position: absolute !important;
+  z-index: 9999 !important; /* Z-index très élevé pour être au-dessus de tout */
+  top: 20px;
+  left: 20px;
+  overflow: visible !important;
 }
 
 /* Conteneur du header (titre + slogan) - Positionné à droite comme sur la photo */

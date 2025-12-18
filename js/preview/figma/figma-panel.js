@@ -60,6 +60,6 @@
     }
   }
 
-  console.log('✅ Figma Panel System initialisé');
+  // Figma Panel System initialisé
 })();
 

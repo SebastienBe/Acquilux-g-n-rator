@@ -12,19 +12,20 @@ async function displayPreview(html, productName) {
   downloadBtn.style.display = 'inline-flex';
   pageTitle.textContent = `Fiche ${productName}`;
   
-  // Appliquer les layouts badges courants au rendu
-  if (typeof BadgeManager !== 'undefined' && BadgeManager.applyLayouts) {
-    BadgeManager.applyLayouts(pdfPreview);
-    BadgeManager.attachDragToAll(pdfPreview);
-  }
+  // Attendre que le DOM soit injecté avant de traiter les badges
+  await new Promise(resolve => setTimeout(resolve, 100));
   
-  // Badges : conversion via fetch -> dataURI pour SVG/PNG (http/https). Local file:// reste en warning.
+  // IMPORTANT : Convertir les badges EN PREMIER avant d'appliquer les layouts
+  // Sinon les images ne sont pas chargées et le badge-group n'a pas de dimensions
+  // Badges : conversion via fetch -> dataURI pour SVG/PNG (http/https)
   const badgeGroup = pdfPreview.querySelector('.badge-group');
-  const badgeImgs = pdfPreview.querySelectorAll('.badge-group img');
-  console.log('🏷️ Badge group trouvé:', !!badgeGroup);
-  console.log('🏷️ Nombre de badges trouvés:', badgeImgs.length);
-  for (const badgeImg of badgeImgs) {
+  const allBadgeImgs = pdfPreview.querySelectorAll('.badge-instance');
+  
+  
+  for (const badgeImg of allBadgeImgs) {
     const imgSrc = badgeImg.currentSrc || badgeImg.src || '';
+
+    if (!imgSrc) continue;
 
     if (imgSrc.startsWith('http')) {
       try {
@@ -32,24 +33,69 @@ async function displayPreview(html, productName) {
         const dataUri = await Utils.fetchUrlToDataURI(imgSrc);
         if (dataUri) {
           badgeImg.src = dataUri;
-          console.log('✅ Badge converti en data URI (fetch, compatible SVG).');
+          
+          // Stocker le SVG original pour pouvoir restaurer les couleurs
+          if (dataUri.startsWith('data:image/svg+xml')) {
+            badgeImg.dataset.originalSvgDataUri = dataUri;
+          }
+          
+          // Attendre que l'image se charge
+          await new Promise((resolve, reject) => {
+            if (badgeImg.complete && badgeImg.naturalWidth > 0) {
+              resolve();
+            } else {
+              badgeImg.addEventListener('load', () => resolve(), { once: true });
+              badgeImg.addEventListener('error', () => reject(new Error('Image load failed')), { once: true });
+              // Timeout après 3 secondes
+              setTimeout(() => reject(new Error('Image load timeout')), 3000);
+            }
+          });
+          
         }
       } catch (err) {
-        console.warn('⚠️ Impossible de convertir le badge distant en data URI (utilisation directe).', err);
+        console.error('❌ Erreur conversion badge:', err);
       }
     } else if (imgSrc.startsWith('data:')) {
-      console.log('ℹ️ Image badge déjà en data URI.');
+      // Déjà en data URI, stocker le SVG original si c'est un SVG
+      if (imgSrc.startsWith('data:image/svg+xml') && !badgeImg.dataset.originalSvgDataUri) {
+        badgeImg.dataset.originalSvgDataUri = imgSrc;
+      }
+      // Attendre le chargement
+      await new Promise((resolve) => {
+        if (badgeImg.complete && badgeImg.naturalWidth > 0) {
+          resolve();
+        } else {
+          badgeImg.addEventListener('load', () => resolve(), { once: true });
+          badgeImg.addEventListener('error', () => resolve(), { once: true });
+        }
+      });
     } else if (imgSrc.startsWith('file://')) {
-      console.warn('⚠️ Image locale (file://). Utilisez un serveur local ou fournissez une URL http/https.');
       try {
         const base64 = await convertImageToBase64OnLoad(badgeImg);
         if (base64) {
           badgeImg.src = base64;
-          console.log('✅ Image badge convertie en base64 (fallback local)');
         }
       } catch (err) {
-        console.warn('⚠️ Erreur lors de la conversion de l\'image locale:', err);
+        console.warn('⚠️ Erreur lors de la conversion locale du badge:', err);
       }
+    }
+  }
+  
+  // MAINTENANT appliquer les couleurs personnalisées puis les layouts badges courants au rendu
+  // Les images sont chargées, donc le badge-group aura les bonnes dimensions
+  if (typeof BadgeManager !== 'undefined') {
+    // Appliquer les couleurs personnalisées pour chaque badge
+    const allBadgeImgs = pdfPreview.querySelectorAll('.badge-instance');
+    for (let i = 0; i < allBadgeImgs.length; i++) {
+      if (BadgeManager.applyColors) {
+        await BadgeManager.applyColors(pdfPreview, i);
+      }
+    }
+    
+    // Puis appliquer les layouts
+    if (BadgeManager.applyLayouts) {
+      BadgeManager.applyLayouts(pdfPreview);
+      BadgeManager.attachDragToAll(pdfPreview);
     }
   }
 }

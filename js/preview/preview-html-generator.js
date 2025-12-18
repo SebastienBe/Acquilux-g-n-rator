@@ -8,8 +8,6 @@
  * @returns {string} - HTML généré
  */
 function generateHTML(pdfContent) {
-  console.log('📄 Génération HTML - Données reçues:', pdfContent);
-  
   // Vérification de la structure des données
   if (!pdfContent || typeof pdfContent !== 'object') {
     console.error('❌ pdfContent invalide:', pdfContent);
@@ -19,47 +17,50 @@ function generateHTML(pdfContent) {
   const { titre, sousTitre, slogan, caracteristiques, consommation } = pdfContent;
 
   // Déterminer les badges sélectionnés (multi)
-  // Priorité : badges stockés dans sessionStorage (sélection explicite de l'utilisateur)
-  // Ne pas utiliser pdfContent.badges automatiquement pour éviter l'affichage de badges non désirés
+  // Priorité 1 : badges stockés dans sessionStorage (sélection explicite de l'utilisateur)
+  // Priorité 2 : badges venant du serveur (pdfContent.badges, pdfContent.badge, etc.)
   let badgeNames = [];
   
+  // Récupérer les badges depuis sessionStorage d'abord
   if (typeof getBadgeNamesArray === 'function') {
     badgeNames = getBadgeNamesArray();
   }
   
-  // Si aucun badge n'est stocké dans sessionStorage, ne pas utiliser pdfContent.badges
-  // Cela évite l'affichage automatique de badges comme "Circuit court"
+  // Si aucun badge n'est stocké dans sessionStorage, utiliser les badges venant du serveur
   if (badgeNames.length === 0) {
-    badgeNames = [];
+    if (typeof BadgeManager !== 'undefined' && BadgeManager.extractBadgesFromContent) {
+      badgeNames = BadgeManager.extractBadgesFromContent(pdfContent);
+    } else {
+      // Fallback si BadgeManager n'est pas disponible
+      if (pdfContent.badges && Array.isArray(pdfContent.badges) && pdfContent.badges.length > 0) {
+        badgeNames = pdfContent.badges.filter(Boolean);
+      } else {
+        const singleBadge = pdfContent.badge || pdfContent.badgeName || pdfContent.atout || 
+                            pdfContent.atoutName || pdfContent.badgeSlug || pdfContent.badge_slug;
+        if (singleBadge) {
+          badgeNames = [singleBadge];
+        }
+      }
+    }
   }
 
-  badgeNames = badgeNames.filter(Boolean);
-
-  console.log('🏷️ Badges à afficher:', badgeNames);
-
-  const badgeItemsHtml = badgeNames.map((name, idx) => {
-    const badgeParam = encodeURIComponent(name);
-    const badgeUrl = `${CONFIG.N8N_BADGE_IMAGE_URL}?name=${badgeParam}&cb=${Date.now()}`;
-    const cls = idx === 0 ? 'badge-instance primary-badge' : 'badge-instance extra-badge';
-    return `<img src="${badgeUrl}" alt="${Utils.escapeHtml(name)}" class="${cls}" data-badge="${Utils.escapeHtml(name)}" data-editable="badge" data-editable-type="badge" style="cursor: pointer;">`;
-  }).join('');
-
-  console.log('🏷️ HTML badges généré:', badgeItemsHtml ? `${badgeItemsHtml.length} caractères` : 'VIDE');
+  const badgeItemsHtml = badgeNames.length > 0 
+    ? badgeNames.map((name, idx) => {
+        const badgeParam = encodeURIComponent(name);
+        const badgeUrl = `${CONFIG.N8N_BADGE_IMAGE_URL}?name=${badgeParam}&cb=${Date.now()}`;
+        const cls = idx === 0 ? 'badge-instance primary-badge' : 'badge-instance extra-badge';
+        return `<img src="${badgeUrl}" alt="${Utils.escapeHtml(name)}" class="${cls}" data-badge="${Utils.escapeHtml(name)}" data-editable="badge" data-editable-type="badge" style="cursor: pointer;">`;
+      }).join('')
+    : '';
 
   // Vérification et normalisation des caractéristiques
   let caracArray = [];
   if (Array.isArray(caracteristiques) && caracteristiques.length > 0) {
     caracArray = caracteristiques;
-    console.log(`✅ ${caracArray.length} caractéristiques trouvées (format tableau)`);
   } else if (caracteristiques && typeof caracteristiques === 'object') {
     // Si c'est un objet, essayer de le convertir en tableau
     caracArray = Object.values(caracteristiques);
-    console.log(`✅ ${caracArray.length} caractéristiques trouvées (format objet converti)`);
-  } else {
-    console.warn('⚠️ Aucune caractéristique valide trouvée:', caracteristiques);
   }
-  
-  console.log('🌿 Caractéristiques normalisées:', caracArray);
 
   // Caractéristiques
   const caracHtml = caracArray.length > 0 
@@ -68,14 +69,11 @@ function generateHTML(pdfContent) {
         const type = Utils.escapeHtml(c.type || c.nom || 'Caractéristique');
         const description = Utils.escapeHtml(c.description || c.value || c.text || '');
         if (!description) {
-          console.warn('⚠️ Caractéristique sans description:', c);
           return '';
         }
         return `<li><strong>${type}</strong> : ${description}</li>`;
       }).filter(html => html !== '').join('')
     : '<li>Aucune caractéristique disponible</li>';
-  
-  console.log('📝 HTML caractéristiques généré, longueur:', caracHtml.length);
 
   // Consommation
   const consoArray = Array.isArray(consommation) ? consommation : [];
@@ -108,9 +106,6 @@ function generateHTML(pdfContent) {
     <div id="oteraFooter" class="otera-footer">
     </div>
   `;
-  
-  console.log('✅ HTML final généré, longueur totale:', finalHtml.length);
-  console.log('✅ Vérification finale - Caractéristiques présentes:', finalHtml.includes('Caractéristiques') && finalHtml.includes('</ul>'));
   
   return finalHtml;
 }

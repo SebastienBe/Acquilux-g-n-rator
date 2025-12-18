@@ -267,7 +267,7 @@
       recipe.setAttribute('data-recipe-index', index);
     });
     
-    console.log(`✅ Éléments éditables configurés: ${pdfPreview.querySelectorAll('[data-editable]').length} éléments`);
+    // Éléments éditables configurés
   }
 
   // Gestionnaire de clic pour la preview (défini avant setupClickHandlers)
