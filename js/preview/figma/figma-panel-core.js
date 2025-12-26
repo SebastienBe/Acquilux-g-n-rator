@@ -36,6 +36,11 @@
     document.addEventListener('click', (e) => {
       const editableElement = e.target.closest('[data-editable]');
       if (editableElement) {
+        // Ne pas ouvrir le panel pour les badges (ils utilisent leur propre système de gestion)
+        const editableType = editableElement.getAttribute('data-editable-type');
+        if (editableType === 'badge' || editableElement.classList.contains('badge-instance')) {
+          return; // Ignorer les badges, ils ont leur propre système de gestion
+        }
         e.preventDefault();
         e.stopPropagation();
         openPanelForElement(editableElement);
@@ -170,8 +175,17 @@
       }
     }
     
+    // Ne pas ouvrir le panel pour les badges (ils utilisent leur propre système)
+    if (editableType === 'badge') {
+      return;
+    }
+    
     // Si toujours pas de type, essayer de déterminer depuis l'ID ou le tagName
     if (!editableType && element) {
+      // Ne pas ouvrir le panel pour les badges détectés par classe
+      if (element.classList && element.classList.contains('badge-instance')) {
+        return;
+      }
       if (element.id === 'mainTitle') {
         editableType = 'title';
       } else if (element.id === 'mainSlogan') {

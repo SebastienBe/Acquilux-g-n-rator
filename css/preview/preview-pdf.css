@@ -19,6 +19,7 @@
   display: flex;
   flex-direction: column;
   position: relative;
+  z-index: 0; /* Contexte de base pour la hiérarchie z-index */
   justify-content: space-between; /* Distribuer l'espace entre contenu et footer */
   align-items: stretch;
   letter-spacing: -0.01em;
@@ -63,7 +64,7 @@
   height: 220px; /* Hauteur pour contenir badge + texte */
   min-height: 220px;
   background: var(--color-badge); /* Orange #E65B0C */
-  z-index: 10; /* Au-dessus du contenu */
+  z-index: 100; /* Au-dessus de tout le contenu texte et image */
   border-radius: 8px 8px 0 0; /* Arrondi seulement en haut */
   display: flex;
   align-items: flex-start;
@@ -79,7 +80,7 @@
 /* Badge dans la bande orange - Ajusté pour padding réduit */
 #pdfPreview .header-orange-band > .badge-group {
   position: absolute !important;
-  z-index: 9999 !important; /* Z-index très élevé pour être au-dessus de tout */
+  z-index: 90 !important; /* Dans le header, au-dessus du header orange mais cohérent avec la hiérarchie */
   top: 20px;
   left: 20px;
   overflow: visible !important;
@@ -207,6 +208,8 @@
   text-transform: uppercase;
   width: calc(100% - 40px);
   box-sizing: border-box;
+  position: relative; /* Créer un contexte de stacking */
+  z-index: 10; /* Au-dessus de l'image pour éviter que l'image passe par-dessus */
 }
 
 #pdfPreview h2 .emoji {
@@ -244,6 +247,8 @@
   margin: 0 20px 12px 20px; /* Espacement réduit pour A5 */
   width: calc(100% - 40px);
   box-sizing: border-box;
+  position: relative; /* Créer un contexte de stacking */
+  z-index: 10; /* Au-dessus de l'image pour éviter que l'image passe par-dessus */
 }
 
 #pdfPreview ul li {
@@ -295,6 +300,8 @@
   backdrop-filter: blur(8px); /* Effet de flou moderne */
   flex-shrink: 1;
   min-height: 0;
+  position: relative; /* Créer un contexte de stacking */
+  z-index: 10; /* Au-dessus de l'image pour éviter que l'image passe par-dessus */
 }
 
 #pdfPreview .recipe strong {

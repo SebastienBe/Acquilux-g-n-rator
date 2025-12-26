@@ -1,0 +1,32 @@
+[
+  {
+    "nom": "circuit-court",
+    "slug": "circuit-court",
+    "label": "Circuit Court",
+    "description": "Produit en circuit court"
+  },
+  {
+    "nom": "bio",
+    "slug": "bio",
+    "label": "Bio",
+    "description": "Produit bio certifié"
+  },
+  {
+    "nom": "local",
+    "slug": "local",
+    "label": "Local",
+    "description": "Produit local"
+  },
+  {
+    "nom": "logo_O_orange",
+    "slug": "logo_O_orange",
+    "label": "Logo O Orange",
+    "description": "Logo Otera Orange"
+  },
+  {
+    "nom": "logo_O_beige",
+    "slug": "logo_O_beige",
+    "label": "Logo O Beige",
+    "description": "Logo Otera Beige"
+  }
+]

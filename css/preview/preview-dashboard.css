@@ -23,6 +23,7 @@ body {
   background: #F5F0E8;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "Inter", sans-serif;
   overflow-x: hidden;
+  color: rgba(0, 0, 0, 1); /* Texte noir pour la lisibilité */
 }
 
 /* ========================================

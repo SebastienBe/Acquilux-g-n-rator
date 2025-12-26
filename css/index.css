@@ -72,12 +72,18 @@ input[type="text"] {
   transition: all 0.3s ease;
   font-family: inherit;
   background: #FFFFFF;
+  color: #2c2e2d; /* Noir pour la lisibilité */
 }
 
 input[type="text"]:focus {
   outline: none;
   border-color: #E65B0C; /* Orange */
   box-shadow: 0 0 0 4px rgba(230, 91, 12, 0.1);
+  color: #2c2e2d; /* Maintenir le texte noir au focus */
+}
+
+input[type="text"]::placeholder {
+  color: rgba(44, 46, 45, 0.5); /* Gris clair pour le placeholder */
 }
 
 .btn {

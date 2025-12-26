@@ -479,40 +479,11 @@
 
     const { x: currentPosX, y: currentPosY } = parseObjectPosition(objectPosition);
 
-    function parseClipPathInset(cp) {
-      const defaults = { top: 0, right: 0, bottom: 0, left: 0 };
-      if (!cp || !cp.startsWith('inset(')) return defaults;
-      const inside = cp.slice(6, -1).trim();
-      const parts = inside.split(/\s+/);
-      if (parts.length < 4) return defaults;
-      const [t, r, b, l] = parts;
-      const toNum = (v) => {
-        if (!v) return 0;
-        if (v.endsWith('%')) return parseFloat(v);
-        if (v.endsWith('px')) return parseFloat(v);
-        return parseFloat(v) || 0;
-      };
-      return {
-        top: toNum(t),
-        right: toNum(r),
-        bottom: toNum(b),
-        left: toNum(l)
-      };
-    }
-
-    const clip = parseClipPathInset(clipPath);
-    const currentCropTop = element.dataset.cropTop != null
-      ? parseFloat(element.dataset.cropTop) || 0
-      : clip.top;
-    const currentCropRight = element.dataset.cropRight != null
-      ? parseFloat(element.dataset.cropRight) || 0
-      : clip.right;
-    const currentCropBottom = element.dataset.cropBottom != null
-      ? parseFloat(element.dataset.cropBottom) || 0
-      : clip.bottom;
-    const currentCropLeft = element.dataset.cropLeft != null
-      ? parseFloat(element.dataset.cropLeft) || 0
-      : clip.left;
+    // Crop et zoom supprimés - variables gardées pour compatibilité mais fixées à 0
+    const currentCropTop = 0;
+    const currentCropRight = 0;
+    const currentCropBottom = 0;
+    const currentCropLeft = 0;
 
     function parseTranslateY(transform) {
       if (!transform || transform === 'none') return 0;
@@ -616,22 +587,6 @@
         </div>
         <div class="figma-control-row" style="margin-top: 8px;">
           <div class="figma-control-group full-width">
-            <label class="figma-label">Zoom (Crop)</label>
-            <div class="figma-slider-wrapper">
-              <input type="range"
-                     class="figma-slider"
-                     data-image-zoom
-                     data-panel-id="${panelId}"
-                     min="50"
-                     max="200"
-                     step="1"
-                     value="${currentZoom}">
-              <span class="figma-slider-value" data-image-zoom-value>${currentZoom}%</span>
-            </div>
-          </div>
-        </div>
-        <div class="figma-control-row" style="margin-top: 8px;">
-          <div class="figma-control-group full-width">
             <label class="figma-label">Position bloc (Y)</label>
             <div class="figma-slider-wrapper">
               <input type="range"
@@ -648,76 +603,6 @@
         </div>
       </div>
 
-      <div class="figma-section">
-        <div class="section-header">
-          <span class="section-icon">✂️</span>
-          <h3>Crop avancé</h3>
-        </div>
-        <div class="figma-control-row">
-          <div class="figma-control-group full-width">
-            <label class="figma-label">Haut</label>
-            <div class="figma-slider-wrapper">
-              <input type="range"
-                     class="figma-slider"
-                     data-image-crop-top
-                     data-panel-id="${panelId}"
-                     min="0"
-                     max="50"
-                     step="1"
-                     value="${currentCropTop}">
-              <span class="figma-slider-value" data-image-crop-top-value>${currentCropTop}%</span>
-            </div>
-          </div>
-        </div>
-        <div class="figma-control-row">
-          <div class="figma-control-group full-width">
-            <label class="figma-label">Bas</label>
-            <div class="figma-slider-wrapper">
-              <input type="range"
-                     class="figma-slider"
-                     data-image-crop-bottom
-                     data-panel-id="${panelId}"
-                     min="0"
-                     max="50"
-                     step="1"
-                     value="${currentCropBottom}">
-              <span class="figma-slider-value" data-image-crop-bottom-value>${currentCropBottom}%</span>
-            </div>
-          </div>
-        </div>
-        <div class="figma-control-row">
-          <div class="figma-control-group full-width">
-            <label class="figma-label">Gauche</label>
-            <div class="figma-slider-wrapper">
-              <input type="range"
-                     class="figma-slider"
-                     data-image-crop-left
-                     data-panel-id="${panelId}"
-                     min="0"
-                     max="50"
-                     step="1"
-                     value="${currentCropLeft}">
-              <span class="figma-slider-value" data-image-crop-left-value>${currentCropLeft}%</span>
-            </div>
-          </div>
-        </div>
-        <div class="figma-control-row">
-          <div class="figma-control-group full-width">
-            <label class="figma-label">Droite</label>
-            <div class="figma-slider-wrapper">
-              <input type="range"
-                     class="figma-slider"
-                     data-image-crop-right
-                     data-panel-id="${panelId}"
-                     min="0"
-                     max="50"
-                     step="1"
-                     value="${currentCropRight}">
-              <span class="figma-slider-value" data-image-crop-right-value>${currentCropRight}%</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div class="figma-section">
         <div class="section-header">

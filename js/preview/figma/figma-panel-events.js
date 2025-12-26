@@ -80,33 +80,30 @@
       const brightness = brightnessInput ? parseInt(brightnessInput.value) || 100 : 100;
       const contrast = contrastInput ? parseInt(contrastInput.value) || 100 : 100;
       const saturation = saturationInput ? parseInt(saturationInput.value) || 100 : 100;
-      const zoom = zoomInput ? parseInt(zoomInput.value) || 100 : 100;
+      // Zoom et crop supprimés - valeurs fixes
+      const zoom = 100;
       const posX = posXInput ? parseInt(posXInput.value) || 50 : 50;
       const posY = posYInput ? parseInt(posYInput.value) || 50 : 50;
-      currentZoom = zoom;
+      currentZoom = 100;
 
-      cropTop = cropTopInput ? parseInt(cropTopInput.value) || 0 : 0;
-      cropRight = cropRightInput ? parseInt(cropRightInput.value) || 0 : 0;
-      cropBottom = cropBottomInput ? parseInt(cropBottomInput.value) || 0 : 0;
-      cropLeft = cropLeftInput ? parseInt(cropLeftInput.value) || 0 : 0;
+      cropTop = 0;
+      cropRight = 0;
+      cropBottom = 0;
+      cropLeft = 0;
       blockOffsetY = blockOffsetInput ? parseInt(blockOffsetInput.value) || 0 : 0;
 
       try {
-        element.dataset.cropTop = String(cropTop);
-        element.dataset.cropRight = String(cropRight);
-        element.dataset.cropBottom = String(cropBottom);
-        element.dataset.cropLeft = String(cropLeft);
-        element.dataset.zoom = String(zoom);
+        // Zoom et crop supprimés - ne plus sauvegarder
         element.dataset.widthPercent = String(width);
         element.dataset.heightPercent = String(height);
       } catch (e) {
-        console.warn('⚠️ Impossible de sauvegarder les données de crop sur l\'image:', e);
+        console.warn('⚠️ Impossible de sauvegarder les données sur l\'image:', e);
       }
 
       element.style.width = `${width}%`;
       element.style.height = `${height}%`;
-      const zoomFactor = zoom / 100;
-      element.style.transform = `rotate(${rotation}deg) scaleX(${currentScaleX * zoomFactor}) scaleY(${currentScaleY * zoomFactor})`;
+      // Zoom supprimé - pas de zoomFactor
+      element.style.transform = `rotate(${rotation}deg) scaleX(${currentScaleX}) scaleY(${currentScaleY})`;
       element.style.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
       element.style.clipPath = 'none';
       
@@ -120,37 +117,12 @@
           : 1;
         let containerHeight = containerWidth * ratio;
         containerHeight *= (height / 100);
-        containerHeight *= (zoom / 100);
+        // Zoom supprimé - ne plus multiplier par zoom
         // Réduire la hauteur de base de 40px pour un meilleur rendu
         containerHeight = Math.max(80, containerHeight - 40);
         
-        // Ajuster object-position Y pour gérer le crop avec un meilleur centrage
-        // Décaler la position Y de base de 70px vers le bas (20px + 50px)
-        // Convertir 70px en pourcentage basé sur la hauteur du conteneur
-        const baseOffsetY = containerHeight > 0 ? (70 / containerHeight) * 100 : 0;
-        let adjustedPosY = posY + baseOffsetY;
-        
-        if (cropTop > 0 && cropBottom === 0) {
-          // Crop seulement le top : déplacer vers le bas pour centrer la partie visible
-          // Utiliser un facteur plus précis pour un meilleur centrage
-          const cropTopOffset = (cropTop / 100) * 100;
-          adjustedPosY = Math.min(100, adjustedPosY + cropTopOffset);
-        } else if (cropBottom > 0 && cropTop === 0) {
-          // Crop seulement le bottom : déplacer vers le haut pour centrer la partie visible
-          const cropBottomOffset = (cropBottom / 100) * 100;
-          adjustedPosY = Math.max(0, adjustedPosY - cropBottomOffset);
-        } else if (cropTop > 0 && cropBottom > 0) {
-          // Crop des deux côtés : centrer la partie visible restante
-          // Calculer le déplacement pour centrer la zone visible entre les deux crops
-          const totalCrop = cropTop + cropBottom;
-          const visibleRatio = 1 - (totalCrop / 100);
-          // Centrer la zone visible en ajustant la position (avec l'offset de base)
-          const centerOffset = (cropTop - cropBottom) / 2;
-          adjustedPosY = Math.max(0, Math.min(100, 50 + baseOffsetY + centerOffset));
-        }
-        
-        // Appliquer object-position ajusté pour le crop
-        element.style.objectPosition = `${posX}% ${adjustedPosY}%`;
+        // Crop supprimé - utiliser simplement la position Y sans ajustements de crop
+        element.style.objectPosition = `${posX}% ${posY}%`;
         
         // Appliquer la hauteur du conteneur (sans réduction par le crop)
         container.style.height = `${containerHeight}px`;
@@ -352,17 +324,7 @@
       });
     }
 
-    // Zoom (crop)
-    const zoomInput = panel.querySelector(`[data-image-zoom][data-panel-id="${panelId}"]`);
-    if (zoomInput) {
-      const zoomValue = panel.querySelector(`[data-image-zoom-value]`);
-      zoomInput.addEventListener('input', () => {
-        const value = parseInt(zoomInput.value) || 100;
-        currentZoom = value;
-        if (zoomValue) zoomValue.textContent = `${value}%`;
-        applyImageTransform();
-      });
-    }
+    // Zoom supprimé - code désactivé
 
     // Position fine X/Y
     const posXInput = panel.querySelector(`[data-image-pos-x][data-panel-id="${panelId}"]`);
@@ -386,39 +348,7 @@
       });
     }
 
-    // Crop sliders
-    const cropTopInput = panel.querySelector(`[data-image-crop-top][data-panel-id="${panelId}"]`);
-    const cropRightInput = panel.querySelector(`[data-image-crop-right][data-panel-id="${panelId}"]`);
-    const cropBottomInput = panel.querySelector(`[data-image-crop-bottom][data-panel-id="${panelId}"]`);
-    const cropLeftInput = panel.querySelector(`[data-image-crop-left][data-panel-id="${panelId}"]`);
-    const cropTopValue = panel.querySelector(`[data-image-crop-top-value]`);
-    const cropRightValue = panel.querySelector(`[data-image-crop-right-value]`);
-    const cropBottomValue = panel.querySelector(`[data-image-crop-bottom-value]`);
-    const cropLeftValue = panel.querySelector(`[data-image-crop-left-value]`);
-
-    if (cropTopInput) {
-      cropTopInput.addEventListener('input', () => {
-        const value = parseInt(cropTopInput.value) || 0;
-        if (cropTopValue) cropTopValue.textContent = `${value}%`;
-        applyImageTransform();
-      });
-    }
-
-    if (cropBottomInput) {
-      cropBottomInput.addEventListener('input', () => {
-        const value = parseInt(cropBottomInput.value) || 0;
-        if (cropBottomValue) cropBottomValue.textContent = `${value}%`;
-        applyImageTransform();
-      });
-    }
-
-    if (cropLeftInput) {
-      cropLeftInput.addEventListener('input', () => {
-        const value = parseInt(cropLeftInput.value) || 0;
-        if (cropLeftValue) cropLeftValue.textContent = `${value}%`;
-        applyImageTransform();
-      });
-    }
+    // Crop sliders supprimés - code désactivé
 
     // Déplacement du bloc (translateY sur le conteneur)
     const blockOffsetInput = panel.querySelector(`[data-image-block-offset-y][data-panel-id="${panelId}"]`);
@@ -428,14 +358,6 @@
         const value = parseInt(blockOffsetInput.value) || 0;
         blockOffsetY = value;
         if (blockOffsetValue) blockOffsetValue.textContent = `${value}px`;
-        applyImageTransform();
-      });
-    }
-
-    if (cropRightInput) {
-      cropRightInput.addEventListener('input', () => {
-        const value = parseInt(cropRightInput.value) || 0;
-        if (cropRightValue) cropRightValue.textContent = `${value}%`;
         applyImageTransform();
       });
     }
@@ -465,13 +387,8 @@
           const saturationValue = panel.querySelector(`[data-image-saturation-value]`);
           if (saturationValue) saturationValue.textContent = '100%';
         }
-        const zoomInput = panel.querySelector(`[data-image-zoom][data-panel-id="${panelId}"]`);
-        const zoomValue = panel.querySelector(`[data-image-zoom-value]`);
-        if (zoomInput) {
-          zoomInput.value = 100;
-          currentZoom = 100;
-          if (zoomValue) zoomValue.textContent = '100%';
-        }
+        // Zoom et crop supprimés - réinitialisation désactivée
+        currentZoom = 100;
         const posXInput = panel.querySelector(`[data-image-pos-x][data-panel-id="${panelId}"]`);
         const posYInput = panel.querySelector(`[data-image-pos-y][data-panel-id="${panelId}"]`);
         const posXValue = panel.querySelector(`[data-image-pos-x-value]`);
@@ -480,22 +397,6 @@
         if (posYInput) posYInput.value = 50;
         if (posXValue) posXValue.textContent = '50%';
         if (posYValue) posYValue.textContent = '50%';
-        const cropTopInput = panel.querySelector(`[data-image-crop-top][data-panel-id="${panelId}"]`);
-        const cropRightInput = panel.querySelector(`[data-image-crop-right][data-panel-id="${panelId}"]`);
-        const cropBottomInput = panel.querySelector(`[data-image-crop-bottom][data-panel-id="${panelId}"]`);
-        const cropLeftInput = panel.querySelector(`[data-image-crop-left][data-panel-id="${panelId}"]`);
-        const cropTopValue = panel.querySelector(`[data-image-crop-top-value]`);
-        const cropRightValue = panel.querySelector(`[data-image-crop-right-value]`);
-        const cropBottomValue = panel.querySelector(`[data-image-crop-bottom-value]`);
-        const cropLeftValue = panel.querySelector(`[data-image-crop-left-value]`);
-        if (cropTopInput) cropTopInput.value = 0;
-        if (cropRightInput) cropRightInput.value = 0;
-        if (cropBottomInput) cropBottomInput.value = 0;
-        if (cropLeftInput) cropLeftInput.value = 0;
-        if (cropTopValue) cropTopValue.textContent = '0%';
-        if (cropRightValue) cropRightValue.textContent = '0%';
-        if (cropBottomValue) cropBottomValue.textContent = '0%';
-        if (cropLeftValue) cropLeftValue.textContent = '0%';
         currentScaleX = 1;
         currentScaleY = 1;
         element.style.objectFit = 'cover';

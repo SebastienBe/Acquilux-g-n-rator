@@ -13,7 +13,9 @@
     orange: '#E65B0C', // Orange actuel
     beige: '#F6E2BE',  // Beige du background
     blue: '#B5DBE8',   // Bleu clair
-    darkRed: '#60191A' // Rouge foncé
+    darkRed: '#60191A', // Rouge foncé
+    white: '#FFF',     // Blanc
+    black: '#000'      // Noir
   };
 
   // ========================================
@@ -296,7 +298,8 @@
    */
   function getStoredBadgeLayouts() {
     try {
-      const raw = sessionStorage.getItem('badgeLayouts');
+      // Utiliser localStorage pour persister même après un rafraîchissement
+      const raw = localStorage.getItem('badgeLayouts');
       if (!raw) return {};
       const parsed = JSON.parse(raw);
       return typeof parsed === 'object' ? parsed : {};
@@ -310,7 +313,18 @@
    * @param {Object} layouts - Layouts à sauvegarder
    */
   function saveBadgeLayouts(layouts) {
-    sessionStorage.setItem('badgeLayouts', JSON.stringify(layouts));
+    try {
+      // Utiliser localStorage pour persister même après un rafraîchissement
+      localStorage.setItem('badgeLayouts', JSON.stringify(layouts));
+    } catch (err) {
+      console.warn('⚠️ Impossible de sauvegarder les layouts de badges dans localStorage:', err);
+      // Fallback vers sessionStorage si localStorage n'est pas disponible
+      try {
+        sessionStorage.setItem('badgeLayouts', JSON.stringify(layouts));
+      } catch (fallbackErr) {
+        console.error('❌ Impossible de sauvegarder dans sessionStorage non plus:', fallbackErr);
+      }
+    }
   }
 
   /**
@@ -374,6 +388,24 @@
       badgeImg.dataset.originalSvgDataUri = badgeImg.src;
     }
     
+    // Extraire et stocker la liste des couleurs indexées si pas déjà fait
+    let colorIndexList = null;
+    if (badgeImg.dataset.colorIndexList) {
+      try {
+        colorIndexList = JSON.parse(badgeImg.dataset.colorIndexList);
+      } catch (e) {
+        console.warn('Impossible de parser colorIndexList:', e);
+      }
+    }
+    
+    if (!colorIndexList) {
+      const originalSVG = decodeSVGDataURI(badgeImg.dataset.originalSvgDataUri || badgeImg.src);
+      if (originalSVG) {
+        colorIndexList = extractColorsFromSVG(originalSVG);
+        badgeImg.dataset.colorIndexList = JSON.stringify(colorIndexList);
+      }
+    }
+    
     const layout = getLayoutForIndex(badgeIndex);
     if (!layout.colors || Object.keys(layout.colors).length === 0) {
       // Pas de couleurs personnalisées, restaurer l'original
@@ -383,8 +415,43 @@
       return;
     }
     
-    // Appliquer les couleurs
-    applyBadgeColors(badgeImg, layout.colors);
+    // Appliquer les couleurs avec la liste d'index
+    applyBadgeColors(badgeImg, layout.colors, colorIndexList);
+  }
+
+  /**
+   * Met à jour seulement la taille d'un badge, sans toucher à sa position
+   * @param {HTMLElement} pdfPreview - Élément de preview
+   * @param {number} idx - Index du badge
+   * @param {number} newWidth - Nouvelle largeur (la valeur du slider)
+   */
+  function updateBadgeSizeOnly(pdfPreview, idx, newWidth) {
+    if (!pdfPreview) return;
+    
+    const badgeNames = getBadgeNamesArray();
+    if (idx < 0 || idx >= badgeNames.length) return;
+    
+    const badgeName = badgeNames[idx];
+    const badgeImg = Array.from(pdfPreview.querySelectorAll('.badge-instance'))
+      .find(img => img.dataset.badge === badgeName);
+    
+    if (!badgeImg) return;
+    
+    // Mettre à jour seulement la largeur et la hauteur, sans toucher à la position
+    badgeImg.style.width = `${newWidth}px`;
+    
+    // Calculer la hauteur proportionnelle
+    if (badgeImg.naturalWidth && badgeImg.naturalHeight && badgeImg.naturalWidth > 0 && badgeImg.naturalHeight > 0) {
+      const aspectRatio = badgeImg.naturalHeight / badgeImg.naturalWidth;
+      const calculatedHeight = newWidth * aspectRatio;
+      badgeImg.style.height = `${calculatedHeight}px`;
+      badgeImg.style.minHeight = 'auto';
+      badgeImg.style.maxHeight = 'none';
+    } else {
+      badgeImg.style.height = 'auto';
+      badgeImg.style.minHeight = '40px';
+      badgeImg.style.maxHeight = 'none';
+    }
   }
 
   /**
@@ -394,51 +461,92 @@
   function applyBadgeLayoutsToPreview(pdfPreview) {
     if (!pdfPreview) return;
     
-    const badgeGroup = pdfPreview.querySelector('.badge-group');
-    if (!badgeGroup) return;
-    
-    // Les badges doivent être positionnés dans le PDF, pas dans le header
-    // On va les déplacer du badge-group vers le pdfPreview directement
+    // Les badges doivent être positionnés dans le PDF, pas dans the header
+    // Rechercher les badges directement dans pdfPreview (ils peuvent déjà y être)
     let badges = Array.from(pdfPreview.querySelectorAll('.badge-instance'));
     
-    // Si les badges sont dans le badge-group, les déplacer vers le pdfPreview
-    badges.forEach((img) => {
-      if (img.parentElement === badgeGroup) {
-        pdfPreview.appendChild(img);
-      }
-    });
+    // Si les badges sont encore dans badge-group, les déplacer vers le pdfPreview
+    const badgeGroup = pdfPreview.querySelector('.badge-group');
+    if (badgeGroup) {
+      badges.forEach((img) => {
+        if (img.parentElement === badgeGroup) {
+          pdfPreview.appendChild(img);
+        }
+      });
+    }
     
     // Re-chercher les badges après déplacement pour avoir la liste à jour
     badges = Array.from(pdfPreview.querySelectorAll('.badge-instance'));
     
+    // Récupérer la liste des noms de badges pour faire correspondre par nom plutôt que par index
+    const badgeNames = getBadgeNamesArray();
+    
+    // S'assurer que tous les badges ont un layout initialisé
+    ensureLayoutsForBadges(badgeNames.length);
+    
     // Positionner les badges directement dans le pdfPreview au centre
-    badges.forEach((img, idx) => {
+    // Faire correspondre par nom (data-badge) plutôt que par index DOM pour éviter les problèmes d'ordre
+    badgeNames.forEach((badgeName, idx) => {
+      // Trouver le badge correspondant par son attribut data-badge
+      const badgeImg = badges.find(img => img.dataset.badge === badgeName);
+      if (!badgeImg) {
+        console.warn(`Badge "${badgeName}" non trouvé dans le DOM`);
+        return; // Badge non trouvé, ignorer
+      }
+      
       const layout = getLayoutForIndex(idx);
       
-      // Positionner au centre du PDF (50% de gauche, 50% du bas)
-      // Utiliser left: 50% et bottom: 50% avec transform pour centrer parfaitement
-      const offsetX = layout.offsetXPx || 0;
-      const offsetY = layout.offsetYPx || 0;
+      // Lire la position actuelle du badge depuis les styles inline pour la préserver
+      // Cela évite de repositionner le badge quand on change seulement la taille
+      const hasExistingPosition = badgeImg.style.left && badgeImg.style.left !== '' && 
+                                   badgeImg.style.bottom && badgeImg.style.bottom !== '';
       
-      // Appliquer les styles de positionnement absolu dans le PDF
-      img.style.cssText = `
-        position: absolute !important;
-        left: calc(50% + ${offsetX}px) !important;
-        bottom: calc(50% + ${-offsetY}px) !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        height: ${layout.heightPx}px !important;
-        width: auto !important;
-        min-width: 80px !important;
-        max-width: 120px !important;
-        object-fit: contain !important;
-        z-index: 10000 !important;
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        pointer-events: auto !important;
-        transform: translate(-50%, 50%) !important;
-      `;
+      // Préserver les styles existants et n'écraser que ce qui est nécessaire
+      // Si le badge a déjà une position en style inline, la conserver
+      if (!hasExistingPosition) {
+        // Positionner au centre du PDF (50% de gauche, 50% du bas) seulement si pas de position existante
+        const offsetX = layout.offsetXPx || 0;
+        const offsetY = layout.offsetYPx || 0;
+        badgeImg.style.position = 'absolute';
+        badgeImg.style.left = `calc(50% + ${offsetX}px)`;
+        badgeImg.style.bottom = `calc(50% + ${-offsetY}px)`;
+      } else {
+        // Conserver la position existante, juste s'assurer que position est absolute
+        // Ne pas toucher à left et bottom, ils sont déjà définis dans style inline
+        if (!badgeImg.style.position || badgeImg.style.position === 'static') {
+          badgeImg.style.position = 'absolute';
+        }
+      }
+      
+      badgeImg.style.margin = '0';
+      badgeImg.style.padding = '0';
+      // Utiliser la largeur comme base (la valeur du slider devient la largeur)
+      badgeImg.style.width = `${layout.heightPx}px`;
+      
+      // Calculer la hauteur proportionnelle en fonction de la largeur et du ratio d'aspect
+      // Si l'image a des dimensions naturelles, utiliser son ratio, sinon utiliser 'auto'
+      if (badgeImg.naturalWidth && badgeImg.naturalHeight && badgeImg.naturalWidth > 0 && badgeImg.naturalHeight > 0) {
+        const aspectRatio = badgeImg.naturalHeight / badgeImg.naturalWidth; // Ratio hauteur/largeur
+        const calculatedHeight = layout.heightPx * aspectRatio; // Hauteur = largeur × (hauteur/largeur)
+        badgeImg.style.height = `${calculatedHeight}px`;
+        // Supprimer les limites minHeight/maxHeight pour permettre l'agrandissement complet
+        badgeImg.style.minHeight = 'auto';
+        badgeImg.style.maxHeight = 'none';
+      } else {
+        // Fallback si les dimensions naturelles ne sont pas encore disponibles
+        badgeImg.style.height = 'auto';
+        badgeImg.style.minHeight = '40px';
+        badgeImg.style.maxHeight = 'none'; // Permettre l'agrandissement
+      }
+      
+      badgeImg.style.objectFit = 'contain';
+      badgeImg.style.zIndex = '10000';
+      badgeImg.style.display = 'block';
+      badgeImg.style.visibility = 'visible';
+      badgeImg.style.opacity = '1';
+      badgeImg.style.pointerEvents = 'auto';
+      badgeImg.style.transform = 'translate(-50%, 50%)';
+      badgeImg.style.userSelect = 'none';
     });
     
   }
@@ -448,14 +556,218 @@
   // ========================================
 
   /**
-   * Extrait toutes les couleurs uniques d'un SVG
+   * Extrait chaque élément SVG avec sa couleur individuellement
+   * Permet de changer chaque élément indépendamment même s'ils ont la même couleur
    * @param {string} svgContent - Contenu SVG (XML string)
-   * @returns {Array<string>} Tableau des couleurs uniques trouvées
+   * @returns {Array<{index: number, color: string, elementType: string, attribute: string, originalMatch: string}>} Tableau des éléments avec leur couleur
    */
   function extractColorsFromSVG(svgContent) {
     if (!svgContent) return [];
     
-    const colors = new Set();
+    const colorsList = [];
+    let index = 0;
+    
+    // Expressions régulières pour trouver les éléments SVG avec leurs attributs fill/stroke
+    // On cherche chaque occurrence individuelle, pas les couleurs uniques
+    
+    // Pattern pour les éléments SVG (rect, path, circle, ellipse, line, polyline, polygon, g)
+    const elementPattern = /<(\w+)([^>]*?)>/gi;
+    let elementMatch;
+    
+    while ((elementMatch = elementPattern.exec(svgContent)) !== null) {
+      const elementType = elementMatch[1].toLowerCase();
+      const attributes = elementMatch[2];
+      
+      // Ignorer les éléments qui ne sont généralement pas colorés
+      if (elementType === 'svg' || elementType === 'defs' || elementType === 'clipPath' || elementType === 'mask') {
+        continue;
+      }
+      
+      // Chercher fill dans les attributs
+      const fillAttrMatch = attributes.match(/fill=["']([^"']+)["']/i);
+      if (fillAttrMatch) {
+        const color = fillAttrMatch[1].trim();
+        if (isValidColor(color)) {
+          colorsList.push({
+            index: index++,
+            color: color,
+            elementType: elementType,
+            attribute: 'fill',
+            originalMatch: fillAttrMatch[0]
+          });
+        }
+      }
+      
+      // Chercher stroke dans les attributs
+      const strokeAttrMatch = attributes.match(/stroke=["']([^"']+)["']/i);
+      if (strokeAttrMatch) {
+        const color = strokeAttrMatch[1].trim();
+        if (isValidColor(color)) {
+          colorsList.push({
+            index: index++,
+            color: color,
+            elementType: elementType,
+            attribute: 'stroke',
+            originalMatch: strokeAttrMatch[0]
+          });
+        }
+      }
+      
+      // Chercher fill dans les styles inline
+      const styleAttrMatch = attributes.match(/style=["']([^"']+)["']/i);
+      if (styleAttrMatch) {
+        const styleContent = styleAttrMatch[1];
+        const fillStyleMatch = styleContent.match(/fill\s*:\s*([^;]+)/i);
+        if (fillStyleMatch) {
+          const color = fillStyleMatch[1].trim();
+          if (isValidColor(color)) {
+            colorsList.push({
+              index: index++,
+              color: color,
+              elementType: elementType,
+              attribute: 'fill',
+              originalMatch: fillStyleMatch[0],
+              inStyle: true
+            });
+          }
+        }
+        
+        const strokeStyleMatch = styleContent.match(/stroke\s*:\s*([^;]+)/i);
+        if (strokeStyleMatch) {
+          const color = strokeStyleMatch[1].trim();
+          if (isValidColor(color)) {
+            colorsList.push({
+              index: index++,
+              color: color,
+              elementType: elementType,
+              attribute: 'stroke',
+              originalMatch: strokeStyleMatch[0],
+              inStyle: true
+            });
+          }
+        }
+      }
+    }
+    
+    // Retourner juste les couleurs pour compatibilité, mais aussi stocker les infos complètes
+    return colorsList.map(item => item.color);
+  }
+  
+  /**
+   * Extrait chaque élément SVG avec ses détails complets pour modifications indépendantes
+   * @param {string} svgContent - Contenu SVG (XML string)
+   * @returns {Array<{index: number, color: string, elementType: string, attribute: string, originalMatch: string, position: number}>} Tableau des éléments avec détails
+   */
+  function extractSVGElementsWithColors(svgContent) {
+    if (!svgContent) return [];
+    
+    const elementsList = [];
+    let index = 0;
+    
+    // Pattern pour les éléments SVG
+    const elementPattern = /<(\w+)([^>]*?)>/gi;
+    let elementMatch;
+    
+    while ((elementMatch = elementPattern.exec(svgContent)) !== null) {
+      const elementType = elementMatch[1].toLowerCase();
+      const attributes = elementMatch[2];
+      const elementPosition = elementMatch.index;
+      const fullMatch = elementMatch[0];
+      
+      // Ignorer les éléments qui ne sont généralement pas colorés
+      if (elementType === 'svg' || elementType === 'defs' || elementType === 'clipPath' || elementType === 'mask') {
+        continue;
+      }
+      
+      // Chercher fill dans les attributs
+      const fillAttrMatch = attributes.match(/fill=["']([^"']+)["']/i);
+      if (fillAttrMatch) {
+        const color = fillAttrMatch[1].trim();
+        if (isValidColor(color)) {
+          elementsList.push({
+            index: index++,
+            color: color,
+            elementType: elementType,
+            attribute: 'fill',
+            originalMatch: fillAttrMatch[0],
+            elementPosition: elementPosition,
+            fullElementMatch: fullMatch,
+            attributePosition: elementMatch.index + elementMatch[1].length + 1 + attributes.indexOf(fillAttrMatch[0])
+          });
+        }
+      }
+      
+      // Chercher stroke dans les attributs
+      const strokeAttrMatch = attributes.match(/stroke=["']([^"']+)["']/i);
+      if (strokeAttrMatch) {
+        const color = strokeAttrMatch[1].trim();
+        if (isValidColor(color)) {
+          elementsList.push({
+            index: index++,
+            color: color,
+            elementType: elementType,
+            attribute: 'stroke',
+            originalMatch: strokeAttrMatch[0],
+            elementPosition: elementPosition,
+            fullElementMatch: fullMatch,
+            attributePosition: elementMatch.index + elementMatch[1].length + 1 + attributes.indexOf(strokeAttrMatch[0])
+          });
+        }
+      }
+      
+      // Chercher fill dans les styles inline
+      const styleAttrMatch = attributes.match(/style=["']([^"']+)["']/i);
+      if (styleAttrMatch) {
+        const styleContent = styleAttrMatch[1];
+        const fillStyleMatch = styleContent.match(/fill\s*:\s*([^;]+)/i);
+        if (fillStyleMatch) {
+          const color = fillStyleMatch[1].trim();
+          if (isValidColor(color)) {
+            elementsList.push({
+              index: index++,
+              color: color,
+              elementType: elementType,
+              attribute: 'fill',
+              originalMatch: fillStyleMatch[0],
+              inStyle: true,
+              elementPosition: elementPosition,
+              fullElementMatch: fullMatch
+            });
+          }
+        }
+        
+        const strokeStyleMatch = styleContent.match(/stroke\s*:\s*([^;]+)/i);
+        if (strokeStyleMatch) {
+          const color = strokeStyleMatch[1].trim();
+          if (isValidColor(color)) {
+            elementsList.push({
+              index: index++,
+              color: color,
+              elementType: elementType,
+              attribute: 'stroke',
+              originalMatch: strokeStyleMatch[0],
+              inStyle: true,
+              elementPosition: elementPosition,
+              fullElementMatch: fullMatch
+            });
+          }
+        }
+      }
+    }
+    
+    return elementsList;
+  }
+  
+  /**
+   * Extrait toutes les occurrences de couleurs avec leur index pour permettre des modifications indépendantes
+   * @param {string} svgContent - Contenu SVG (XML string)
+   * @returns {Array<{index: number, color: string}>} Tableau des couleurs avec leur index
+   */
+  function extractColorsWithIndex(svgContent) {
+    if (!svgContent) return [];
+    
+    const colorsList = [];
+    const seenColors = new Map();
     
     // Expressions régulières pour trouver fill et stroke dans les attributs
     const fillRegex = /fill=["']([^"']+)["']/gi;
@@ -470,36 +782,44 @@
     // Chercher dans les attributs fill
     while ((match = fillRegex.exec(svgContent)) !== null) {
       const color = match[1].trim();
-      if (isValidColor(color)) {
-        colors.add(color);
+      if (isValidColor(color) && !seenColors.has(color)) {
+        const index = colorsList.length;
+        seenColors.set(color, index);
+        colorsList.push({ index, color });
       }
     }
     
     // Chercher dans les attributs stroke
     while ((match = strokeRegex.exec(svgContent)) !== null) {
       const color = match[1].trim();
-      if (isValidColor(color)) {
-        colors.add(color);
+      if (isValidColor(color) && !seenColors.has(color)) {
+        const index = colorsList.length;
+        seenColors.set(color, index);
+        colorsList.push({ index, color });
       }
     }
     
     // Chercher dans les styles inline fill
     while ((match = styleFillRegex.exec(svgContent)) !== null) {
       const color = match[1].trim();
-      if (isValidColor(color)) {
-        colors.add(color);
+      if (isValidColor(color) && !seenColors.has(color)) {
+        const index = colorsList.length;
+        seenColors.set(color, index);
+        colorsList.push({ index, color });
       }
     }
     
     // Chercher dans les styles inline stroke
     while ((match = styleStrokeRegex.exec(svgContent)) !== null) {
       const color = match[1].trim();
-      if (isValidColor(color)) {
-        colors.add(color);
+      if (isValidColor(color) && !seenColors.has(color)) {
+        const index = colorsList.length;
+        seenColors.set(color, index);
+        colorsList.push({ index, color });
       }
     }
     
-    return Array.from(colors).sort();
+    return colorsList;
   }
 
   /**
@@ -521,33 +841,130 @@
   }
 
   /**
-   * Applique des remplacements de couleurs à un SVG
+   * Applique des remplacements de couleurs à un SVG selon leur index
+   * Permet de changer chaque couleur indépendamment même si plusieurs éléments ont la même couleur
    * @param {string} svgContent - Contenu SVG original
-   * @param {Object} colorMap - Map des remplacements { ancienneCouleur: nouvelleCouleur }
+   * @param {Object} colorMap - Map des remplacements { index: nouvelleCouleur }
+   * @param {Array<string>} colorIndexList - Liste des couleurs dans l'ordre de leur index [color0, color1, ...]
    * @returns {string} SVG modifié
    */
-  function applyColorsToSVG(svgContent, colorMap) {
-    if (!svgContent || !colorMap) return svgContent;
+  function applyColorsToSVG(svgContent, colorMap, colorIndexList) {
+    if (!svgContent || !colorMap || Object.keys(colorMap).length === 0 || !colorIndexList) return svgContent;
     
     let modified = svgContent;
     
-    // Remplacer les couleurs dans les attributs fill et stroke
-    for (const [oldColor, newColor] of Object.entries(colorMap)) {
+    // Pour chaque index dans le colorMap, remplacer uniquement la couleur correspondante
+    // Cela permet de changer chaque occurrence indépendamment
+    Object.entries(colorMap).forEach(([indexStr, newColor]) => {
+      const index = parseInt(indexStr, 10);
+      if (isNaN(index) || index < 0 || index >= colorIndexList.length) return;
+      
+      const oldColor = colorIndexList[index];
+      if (!oldColor) return;
+      
       const escapedColor = escapeRegex(oldColor);
+      
+      // Remplacer uniquement la première occurrence de cette couleur dans le SVG
+      // Pour permettre des changements indépendants, on remplace une occurrence à la fois
+      // On utilise une fonction de remplacement pour ne remplacer que la première occurrence
+      let replaced = false;
       
       // Remplacer dans les attributs fill="..." et stroke="..."
       modified = modified.replace(
-        new RegExp(`(fill|stroke)=["']${escapedColor}["']`, 'gi'),
-        `$1="${newColor}"`
+        new RegExp(`(fill|stroke)=["']\\s*${escapedColor}\\s*["']`, 'i'),
+        (match, prop) => {
+          if (!replaced) {
+            replaced = true;
+            return `${prop}="${newColor}"`;
+          }
+          return match;
+        }
       );
       
-      // Remplacer dans les styles inline style="fill: ..." et style="stroke: ..."
-      // Chercher fill: couleur; ou stroke: couleur; dans les attributs style
-      modified = modified.replace(
-        new RegExp(`(fill|stroke)\\s*:\\s*${escapedColor}(\\s*[;\\s])`, 'gi'),
-        `$1: ${newColor}$2`
-      );
-    }
+      // Si pas encore remplacé, essayer dans les styles inline
+      if (!replaced) {
+        modified = modified.replace(
+          new RegExp(`(fill|stroke)\\s*:\\s*${escapedColor}(\\s*[;\\s]|$)`, 'i'),
+          (match, prop, suffix) => {
+            if (!replaced) {
+              replaced = true;
+              return `${prop}: ${newColor}${suffix || ''}`;
+            }
+            return match;
+          }
+        );
+      }
+    });
+    
+    return modified;
+  }
+  
+  /**
+   * Applique des remplacements de couleurs à un SVG en remplaçant chaque élément individuellement
+   * Permet de changer chaque élément indépendamment même s'ils ont la même couleur
+   * @param {string} svgContent - Contenu SVG original
+   * @param {Object} colorMap - Map des remplacements { index: nouvelleCouleur }
+   * @param {Array<string>} colorIndexList - Liste des couleurs dans l'ordre de leur index [color0, color1, ...]
+   * @returns {string} SVG modifié
+   */
+  function applyColorsToSVGByIndex(svgContent, colorMap, colorIndexList) {
+    if (!svgContent || !colorMap || Object.keys(colorMap).length === 0 || !colorIndexList) return svgContent;
+    
+    // Extraire tous les éléments SVG avec leurs détails et positions exactes
+    const elementsList = extractSVGElementsWithColors(svgContent);
+    
+    // Créer un mapping index -> nouvelle couleur
+    const indexToNewColor = {};
+    Object.entries(colorMap).forEach(([indexStr, newColor]) => {
+      const index = parseInt(indexStr, 10);
+      if (!isNaN(index) && index >= 0 && index < elementsList.length) {
+        indexToNewColor[index] = newColor;
+      }
+    });
+    
+    // Filtrer les éléments qui doivent être modifiés
+    const elementsToReplace = elementsList
+      .map((el, idx) => ({ ...el, originalIndex: idx }))
+      .filter(el => indexToNewColor[el.index] && indexToNewColor[el.index] !== el.color)
+      .sort((a, b) => (b.attributePosition || b.elementPosition || 0) - (a.attributePosition || a.elementPosition || 0));
+    
+    let modified = svgContent;
+    
+    // Remplacer chaque élément en partant de la fin pour préserver les positions
+    elementsToReplace.forEach((element) => {
+      const newColor = indexToNewColor[element.index];
+      const escapedOldColor = escapeRegex(element.color);
+      
+      if (element.inStyle) {
+        // Remplacer dans un style inline
+        // Trouver la balise style complète et remplacer la couleur dedans
+        const elementStart = element.elementPosition;
+        const elementEnd = modified.indexOf('>', elementStart);
+        if (elementEnd > elementStart) {
+          const elementTag = modified.substring(elementStart, elementEnd + 1);
+          const styleMatch = elementTag.match(/style=["']([^"']+)["']/i);
+          if (styleMatch) {
+            const styleContent = styleMatch[1];
+            const newStyleContent = styleContent.replace(
+              new RegExp(`(${element.attribute}\\s*:\\s*)${escapedOldColor}(\\s*[;]?)`, 'i'),
+              `$1${newColor}$2`
+            );
+            const newElementTag = elementTag.replace(styleMatch[0], `style="${newStyleContent}"`);
+            modified = modified.substring(0, elementStart) + newElementTag + modified.substring(elementEnd + 1);
+          }
+        }
+      } else if (element.attributePosition !== undefined) {
+        // Remplacer dans un attribut direct
+        const attrStart = element.attributePosition;
+        const attrEnd = modified.indexOf('"', attrStart + element.attribute.length + 2);
+        if (attrEnd > attrStart) {
+          const before = modified.substring(0, attrStart);
+          const after = modified.substring(attrEnd + 1);
+          const newAttr = `${element.attribute}="${newColor}"`;
+          modified = before + newAttr + after;
+        }
+      }
+    });
     
     return modified;
   }
@@ -619,9 +1036,10 @@
   /**
    * Applique les couleurs personnalisées à un badge
    * @param {HTMLImageElement} badgeImg - Élément image du badge
-   * @param {Object} colorMap - Map des remplacements de couleurs { ancienneCouleur: nouvelleCouleur }
+   * @param {Object} colorMap - Map des remplacements de couleurs { index: nouvelleCouleur }
+   * @param {Array<string>} colorIndexList - Liste des couleurs dans l'ordre de leur index
    */
-  function applyBadgeColors(badgeImg, colorMap) {
+  function applyBadgeColors(badgeImg, colorMap, colorIndexList) {
     if (!badgeImg || !colorMap) return;
     
     // Stocker le SVG original si ce n'est pas déjà fait
@@ -629,10 +1047,43 @@
       badgeImg.dataset.originalSvgDataUri = badgeImg.src;
     }
     
+    // Stocker aussi la liste des couleurs indexées si elle n'est pas fournie
+    if (!colorIndexList && badgeImg.dataset.colorIndexList) {
+      try {
+        colorIndexList = JSON.parse(badgeImg.dataset.colorIndexList);
+      } catch (e) {
+        console.warn('Impossible de parser colorIndexList:', e);
+        return;
+      }
+    }
+    
+    if (!colorIndexList) {
+      // Extraire les couleurs depuis le SVG original
+      const originalSVG = decodeSVGDataURI(badgeImg.dataset.originalSvgDataUri);
+      if (!originalSVG) return;
+      colorIndexList = extractColorsFromSVG(originalSVG);
+      badgeImg.dataset.colorIndexList = JSON.stringify(colorIndexList);
+    }
+    
     const originalSVG = decodeSVGDataURI(badgeImg.dataset.originalSvgDataUri);
     if (!originalSVG) return;
     
-    const modifiedSVG = applyColorsToSVG(originalSVG, colorMap);
+    // Utiliser la liste des éléments SVG stockée ou l'extraire
+    let svgElementsList = null;
+    if (badgeImg.dataset.svgElementsList) {
+      try {
+        svgElementsList = JSON.parse(badgeImg.dataset.svgElementsList);
+      } catch (e) {
+        console.warn('Impossible de parser svgElementsList:', e);
+      }
+    }
+    
+    if (!svgElementsList) {
+      svgElementsList = extractSVGElementsWithColors(originalSVG);
+      badgeImg.dataset.svgElementsList = JSON.stringify(svgElementsList);
+    }
+    
+    const modifiedSVG = applyColorsToSVGByIndex(originalSVG, colorMap, colorIndexList);
     badgeImg.src = encodeSVGToDataURI(modifiedSVG);
   }
 
@@ -665,8 +1116,18 @@
       const badgeImgs = pdfPreview ? pdfPreview.querySelectorAll('.badge-instance') : [];
       const badgeImg = badgeImgs[idx];
       
+      // Stocker les éléments SVG complets pour permettre les modifications individuelles
+      let svgElementsList = [];
+      
       if (badgeImg && badgeImg.src) {
         badgeColors = await getBadgeColors(badgeImg);
+        // Essayer d'extraire aussi les détails complets depuis le SVG original
+        if (badgeImg.dataset.originalSvgDataUri) {
+          const originalSVG = decodeSVGDataURI(badgeImg.dataset.originalSvgDataUri);
+          if (originalSVG) {
+            svgElementsList = extractSVGElementsWithColors(originalSVG);
+          }
+        }
       }
       
       // Si on n'a pas réussi à extraire les couleurs depuis la preview,
@@ -682,6 +1143,12 @@
           if (response.ok) {
             const svgText = await response.text();
             badgeColors = extractColorsFromSVG(svgText);
+            svgElementsList = extractSVGElementsWithColors(svgText);
+            
+            // Stocker la liste des éléments dans le badge pour référence future
+            if (badgeImg) {
+              badgeImg.dataset.svgElementsList = JSON.stringify(svgElementsList);
+            }
           }
         } catch (err) {
           console.warn(`Impossible de charger le badge ${name} pour extraire les couleurs:`, err);
@@ -689,24 +1156,67 @@
       }
       
       // Construire les contrôles de couleur
-      // Toujours afficher la section de couleurs, même si aucune couleur n'a été détectée (pour le moment)
+      // Regrouper les éléments qui ont la même couleur d'origine dans un seul sélecteur
+      const colorGroupsMap = new Map(); // Map: couleur originale -> { indices: [0,1,2], elements: [...] }
+      
+      // Grouper les éléments par couleur originale
+      badgeColors.forEach((color, colorIdx) => {
+        if (!colorGroupsMap.has(color)) {
+          colorGroupsMap.set(color, {
+            originalColor: color,
+            indices: [],
+            elements: []
+          });
+        }
+        const group = colorGroupsMap.get(color);
+        group.indices.push(colorIdx);
+        if (svgElementsList && svgElementsList[colorIdx]) {
+          group.elements.push(svgElementsList[colorIdx]);
+        }
+      });
+      
+      // Créer les contrôles de couleur groupés
       const colorControlsHtml = `
         <div class="control-group badge-colors-group">
           <label class="control-label">Couleurs</label>
-          ${badgeColors.length > 0 ? `
+          ${colorGroupsMap.size > 0 ? `
             <div class="badge-colors-list">
-              ${badgeColors.map((color, colorIdx) => {
-                const colorKey = `color_${colorIdx}`;
-                const currentColor = layout.colors && layout.colors[color] ? layout.colors[color] : color;
+              ${Array.from(colorGroupsMap.values()).map((group, groupIdx) => {
+                // Utiliser la première couleur de la liste comme clé (couleur originale)
+                const originalColor = group.originalColor;
+                const colorIndex = String(group.indices[0]); // Utiliser le premier index comme clé
+                
+                // Vérifier si cette couleur a été modifiée
+                const currentColor = layout.colors && layout.colors[colorIndex] 
+                  ? layout.colors[colorIndex] 
+                  : originalColor;
+                
+                // Créer un label descriptif avec les types d'éléments
+                let elementLabel = '';
+                if (group.elements.length > 0) {
+                  const elementTypes = group.elements.map(el => `${el.elementType} (${el.attribute})`);
+                  const uniqueTypes = [...new Set(elementTypes)];
+                  if (uniqueTypes.length === 1) {
+                    elementLabel = `${group.elements.length} × ${uniqueTypes[0]}`;
+                  } else {
+                    elementLabel = `${group.elements.length} éléments (${uniqueTypes.slice(0, 2).join(', ')}${uniqueTypes.length > 2 ? '...' : ''})`;
+                  }
+                } else {
+                  elementLabel = `${group.indices.length} élément(s)`;
+                }
+                
                 return `
                   <div class="badge-color-item">
                     <div class="color-preview" style="background-color: ${Utils.escapeHtml(currentColor)}; width: 24px; height: 24px; border-radius: 4px; border: 1px solid #ddd;"></div>
-                    <select class="badge-color-select" data-idx="${idx}" data-original-color="${Utils.escapeHtml(color)}">
-                      <option value="${Utils.escapeHtml(color)}" ${currentColor === color ? 'selected' : ''}>Original (${Utils.escapeHtml(color)})</option>
-                      ${Object.entries(AVAILABLE_COLORS).map(([key, value]) => `
-                        <option value="${value}" ${currentColor === value ? 'selected' : ''}>${key} (${value})</option>
-                      `).join('')}
-                    </select>
+                    <div style="flex: 1; min-width: 0;">
+                      <div style="font-size: 11px; color: #666; margin-bottom: 2px;">${Utils.escapeHtml(elementLabel)}</div>
+                      <select class="badge-color-select" data-idx="${idx}" data-color-index="${colorIndex}" data-original-color="${Utils.escapeHtml(originalColor)}" data-all-indices="${group.indices.join(',')}">
+                        <option value="${Utils.escapeHtml(originalColor)}" ${currentColor === originalColor ? 'selected' : ''}>Original (${Utils.escapeHtml(originalColor)})</option>
+                        ${Object.entries(AVAILABLE_COLORS).map(([key, value]) => `
+                          <option value="${value}" ${currentColor === value ? 'selected' : ''}>${key} (${value})</option>
+                        `).join('')}
+                      </select>
+                    </div>
                   </div>
                 `;
               }).join('')}
@@ -758,7 +1268,8 @@
         
         const previewEl = pdfPreview || document.getElementById('pdfPreview');
         if (previewEl) {
-          applyBadgeLayoutsToPreview(previewEl);
+          // Mettre à jour seulement la taille, sans toucher à la position
+          updateBadgeSizeOnly(previewEl, idx, val);
         }
         
         const valueEl = document.getElementById(`badgeSizeValue-${idx}`);
@@ -782,7 +1293,10 @@
       // Mettre à jour lors du changement de sélection
       select.addEventListener('change', async (e) => {
         const idx = Number(e.target.dataset.idx);
+        const colorIndex = String(e.target.dataset.colorIndex); // Index principal (premier de la groupe)
         const originalColor = e.target.dataset.originalColor;
+        const allIndicesStr = e.target.dataset.allIndices; // Tous les indices du groupe
+        const allIndices = allIndicesStr ? allIndicesStr.split(',').map(i => parseInt(i, 10)) : [parseInt(colorIndex, 10)];
         const newColor = e.target.value;
         
         // Mettre à jour l'indicateur de couleur immédiatement
@@ -791,21 +1305,27 @@
         const layout = getLayoutForIndex(idx);
         const colors = { ...(layout.colors || {}) };
         
+        // Appliquer la nouvelle couleur à tous les indices du groupe (éléments avec la même couleur d'origine)
         if (newColor === originalColor) {
-          // Retour à la couleur originale
-          delete colors[originalColor];
+          // Retour à la couleur originale - supprimer l'entrée pour tous les indices du groupe
+          allIndices.forEach(index => {
+            delete colors[String(index)];
+          });
         } else {
-          // Nouvelle couleur personnalisée
-          colors[originalColor] = newColor;
+          // Nouvelle couleur personnalisée - stocker avec tous les indices du groupe
+          allIndices.forEach(index => {
+            colors[String(index)] = newColor;
+          });
         }
         
         setLayoutForIndex(idx, { ...layout, colors });
         
         // Appliquer les couleurs au badge dans la preview
+        // IMPORTANT: Ne pas réappliquer les layouts pour éviter de réinitialiser la position
         const previewEl = pdfPreview || document.getElementById('pdfPreview');
         if (previewEl) {
           await applyBadgeColorsToPreview(previewEl, idx);
-          applyBadgeLayoutsToPreview(previewEl);
+          // Ne pas appeler applyBadgeLayoutsToPreview ici pour préserver la position
         }
       });
       
